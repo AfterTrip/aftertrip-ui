@@ -1,0 +1,7 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title">
+  <title id="title">AfterTrip mark</title>
+  <path d="M8 48L27.5 14.5L38.2 33.2L44.5 22.5L56 48H8Z" fill="#0A1F33"/>
+  <path d="M27.5 14.5L33.3 24.6L25.8 38.1L18.8 48H8L27.5 14.5Z" fill="#5F7779"/>
+  <path d="M27.6 14.5L37.7 32.3L32.5 32.4L26.2 22.5L21.2 31.2L16.8 31.4L27.6 14.5Z" fill="#F7F5F0"/>
+  <circle cx="44.8" cy="21.4" r="3.2" fill="#D8B56A"/>
+</svg>
