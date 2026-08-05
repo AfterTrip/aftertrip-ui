@@ -17,7 +17,10 @@ export function MobileNavigation() {
       </Dialog.Trigger>
       <Dialog.Portal>
         <Dialog.Overlay className="mobile-nav-overlay" />
-        <Dialog.Content className="mobile-nav-content" aria-describedby={undefined}>
+        <Dialog.Content
+          className="mobile-nav-content"
+          aria-describedby={undefined}
+        >
           <div className="mobile-nav-topline">
             <Dialog.Title>AfterTrip menu</Dialog.Title>
             <Dialog.Close asChild>
@@ -35,10 +38,14 @@ export function MobileNavigation() {
           </nav>
           <div className="mobile-nav-actions">
             <Dialog.Close asChild>
-              <Button variant="secondary">Log in</Button>
+              <Button variant="secondary" asChild>
+                <Link href="/login">Log in</Link>
+              </Button>
             </Dialog.Close>
             <Dialog.Close asChild>
-              <Button>Publish Trip</Button>
+              <Button asChild>
+                <Link href="/#publish">Publish Trip</Link>
+              </Button>
             </Dialog.Close>
           </div>
         </Dialog.Content>

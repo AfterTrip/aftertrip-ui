@@ -2,6 +2,7 @@ import type { Trip } from "@/types/trip";
 
 export const featuredTrips: Trip[] = [
   {
+    slug: "exploring-the-magic-of-switzerland",
     title: "Exploring the Magic of Switzerland",
     country: "Switzerland",
     duration: "7 days",
@@ -13,6 +14,7 @@ export const featuredTrips: Trip[] = [
     }
   },
   {
+    slug: "bali-culture-beaches-and-beyond",
     title: "Bali: Culture, Beaches & Beyond",
     country: "Indonesia",
     duration: "5 days",
@@ -24,6 +26,7 @@ export const featuredTrips: Trip[] = [
     }
   },
   {
+    slug: "chasing-northern-lights-in-iceland",
     title: "Chasing Northern Lights in Iceland",
     country: "Iceland",
     duration: "10 days",
@@ -35,6 +38,7 @@ export const featuredTrips: Trip[] = [
     }
   },
   {
+    slug: "thailand-offbeat-island-hopping",
     title: "Thailand Offbeat Island Hopping",
     country: "Thailand",
     duration: "6 days",

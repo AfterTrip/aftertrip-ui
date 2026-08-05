@@ -1,8 +1,8 @@
 export const navigationItems = [
-  { label: "Explore", href: "#featured-trips" },
-  { label: "Destinations", href: "#destinations" },
+  { label: "Explore", href: "/explore" },
+  { label: "Destinations", href: "/#destinations" },
   { label: "Blog", href: "#footer" },
-  { label: "How it works", href: "#how-it-works" },
+  { label: "How it works", href: "/#how-it-works" },
   { label: "About", href: "#footer" }
 ] as const;
 

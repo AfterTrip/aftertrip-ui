@@ -12,10 +12,20 @@ export function SiteHeader() {
       <div className="container header-inner">
         <Link className="brand-lockup" href="/" aria-label="AfterTrip home">
           <Image
+            className="brand-mark-green"
             src="/brand/aftertrip-mark.svg"
             alt=""
-            width={36}
-            height={36}
+            width={42}
+            height={29}
+            priority
+            aria-hidden="true"
+          />
+          <Image
+            className="brand-mark-white"
+            src="/brand/aftertrip-mark-white.svg"
+            alt=""
+            width={42}
+            height={29}
             priority
             aria-hidden="true"
           />
@@ -32,11 +42,11 @@ export function SiteHeader() {
           <IconButton label="Choose language" className="header-globe">
             <Globe2 aria-hidden="true" size={22} />
           </IconButton>
-          <Link className="login-link" href="#footer">
+          <Link className="login-link" href="/login">
             Log in
           </Link>
           <Button variant="secondary" asChild>
-            <Link href="#publish">Publish Trip</Link>
+            <Link href="/#publish">Publish Trip</Link>
           </Button>
         </div>
         <MobileNavigation />

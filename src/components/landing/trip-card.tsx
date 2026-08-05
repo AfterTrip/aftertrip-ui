@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import { Star } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import type { Trip } from "@/types/trip";
@@ -13,7 +14,7 @@ const authorInitials = ["SJ", "AC", "EW", "RV"] as const;
 
 export function TripCard({ trip, index }: TripCardProps) {
   return (
-    <article className="trip-card">
+    <Link className="trip-card" href={`/trips/${trip.slug}`}>
       <Image
         src={trip.image.src}
         alt={trip.image.alt}
@@ -40,6 +41,6 @@ export function TripCard({ trip, index }: TripCardProps) {
           </span>
         </div>
       </div>
-    </article>
+    </Link>
   );
 }

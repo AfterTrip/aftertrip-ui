@@ -1,9 +1,13 @@
 import Image from "next/image";
+import Link from "next/link";
 import type { Destination } from "@/types/destination";
 
 export function DestinationCard({ destination }: { destination: Destination }) {
   return (
-    <article className="destination-card">
+    <Link
+      className="destination-card"
+      href={`/explore?destination=${encodeURIComponent(destination.name)}`}
+    >
       <Image
         src={destination.image.src}
         alt={destination.image.alt}
@@ -15,6 +19,6 @@ export function DestinationCard({ destination }: { destination: Destination }) {
         <h3>{destination.name}</h3>
         <p>{destination.trips}</p>
       </div>
-    </article>
+    </Link>
   );
 }
