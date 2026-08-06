@@ -188,7 +188,10 @@ export function MyTripsPage() {
           <Link href="/#footer">About</Link>
         </nav>
         <div className="dashboard-top-actions">
-          <Link className="dashboard-create-button" href="/#publish">
+          <Link
+            className="dashboard-create-button"
+            href="/dashboard/create-trip"
+          >
             <Plus aria-hidden="true" size={18} />
             Create Trip
           </Link>
@@ -257,7 +260,7 @@ export function MyTripsPage() {
             </div>
             <h2>Share your journey</h2>
             <p>Inspire others by publishing your next trip.</p>
-            <Link href="/#publish">
+            <Link href="/dashboard/create-trip">
               <Plus aria-hidden="true" size={18} />
               Create Trip
             </Link>
@@ -423,7 +426,10 @@ export function MyTripsPage() {
                         <span>♡ {trip.likes}</span>
                       </div>
                     ) : (
-                      <Link className="dashboard-edit-link" href="/#publish">
+                      <Link
+                        className="dashboard-edit-link"
+                        href="/dashboard/create-trip"
+                      >
                         Continue editing
                       </Link>
                     )}
@@ -446,7 +452,7 @@ export function MyTripsPage() {
             <div>
               <h2>Create without limits</h2>
               <p>Unlimited trips, photos and stories. Yours forever.</p>
-              <Link href="/#publish">Learn more</Link>
+              <Link href="/dashboard/create-trip">Learn more</Link>
             </div>
           </section>
         </section>
@@ -464,7 +470,7 @@ export function MyTripsPage() {
           <Bookmark aria-hidden="true" size={22} />
           Bookmarks
         </button>
-        <Link className="create" href="/#publish">
+        <Link className="create" href="/dashboard/create-trip">
           <Plus aria-hidden="true" size={28} />
           <span>Create Trip</span>
         </Link>

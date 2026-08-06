@@ -10,10 +10,15 @@ type TripGalleryProps = {
   images: NonNullable<TripDetail["gallery"]>;
 };
 
+function isVideo(media: NonNullable<TripDetail["gallery"]>[number]) {
+  return media.type === "video" || /\.(mp4|webm|mov)$/i.test(media.src);
+}
+
 export function TripGallery({ images }: TripGalleryProps) {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const activeImage = activeIndex === null ? null : images[activeIndex];
-  const activePhotoNumber = activeIndex === null ? 0 : activeIndex + 1;
+  const activeMediaNumber = activeIndex === null ? 0 : activeIndex + 1;
+  const activeIsVideo = activeImage ? isVideo(activeImage) : false;
 
   useEffect(() => {
     if (activeIndex === null) return;
@@ -50,7 +55,7 @@ export function TripGallery({ images }: TripGalleryProps) {
           type="button"
           onClick={() => setActiveIndex(0)}
         >
-          View all photos ({images.length * 24})
+          View all media ({images.length * 24})
         </button>
       </div>
       <div className="trip-gallery-strip">
@@ -60,12 +65,25 @@ export function TripGallery({ images }: TripGalleryProps) {
             onClick={() => setActiveIndex(index)}
             key={image.src}
           >
-            <Image
-              src={image.src}
-              alt={image.alt}
-              fill
-              sizes="(max-width: 767px) 28vw, 180px"
-            />
+            {isVideo(image) ? (
+              <>
+                <video
+                  src={image.src}
+                  poster={image.poster}
+                  muted
+                  playsInline
+                  preload="metadata"
+                />
+                <span className="gallery-video-badge">Video</span>
+              </>
+            ) : (
+              <Image
+                src={image.src}
+                alt={image.alt}
+                fill
+                sizes="(max-width: 767px) 28vw, 180px"
+              />
+            )}
           </button>
         ))}
       </div>
@@ -76,26 +94,26 @@ export function TripGallery({ images }: TripGalleryProps) {
               className="gallery-lightbox"
               role="dialog"
               aria-modal="true"
-              aria-label="Trip photo viewer"
+              aria-label="Trip media viewer"
             >
               <button
                 className="gallery-lightbox-backdrop"
                 type="button"
-                aria-label="Dismiss photo viewer"
+                aria-label="Dismiss media viewer"
                 onClick={() => setActiveIndex(null)}
               />
               <div className="gallery-lightbox-panel">
                 <div className="gallery-lightbox-topbar">
                   <p>
                     <span>
-                      {activePhotoNumber} / {images.length}
+                      {activeMediaNumber} / {images.length}
                     </span>
                     {activeImage.alt}
                   </p>
                   <button
                     className="gallery-close"
                     type="button"
-                    aria-label="Close photo viewer"
+                    aria-label="Close media viewer"
                     onClick={() => setActiveIndex(null)}
                   >
                     <X aria-hidden="true" size={24} />
@@ -105,7 +123,7 @@ export function TripGallery({ images }: TripGalleryProps) {
                   <button
                     className="gallery-nav previous"
                     type="button"
-                    aria-label="Previous photo"
+                    aria-label="Previous media"
                     onClick={() =>
                       setActiveIndex((index) =>
                         index === null
@@ -118,19 +136,28 @@ export function TripGallery({ images }: TripGalleryProps) {
                   </button>
                 ) : null}
                 <figure>
-                  <Image
-                    src={activeImage.src}
-                    alt={activeImage.alt}
-                    fill
-                    sizes="100vw"
-                    priority
-                  />
+                  {activeIsVideo ? (
+                    <video
+                      src={activeImage.src}
+                      poster={activeImage.poster}
+                      controls
+                      autoPlay
+                    />
+                  ) : (
+                    <Image
+                      src={activeImage.src}
+                      alt={activeImage.alt}
+                      fill
+                      sizes="100vw"
+                      priority
+                    />
+                  )}
                 </figure>
                 {images.length > 1 ? (
                   <button
                     className="gallery-nav next"
                     type="button"
-                    aria-label="Next photo"
+                    aria-label="Next media"
                     onClick={() =>
                       setActiveIndex((index) =>
                         index === null ? 0 : (index + 1) % images.length

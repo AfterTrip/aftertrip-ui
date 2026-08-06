@@ -46,7 +46,7 @@ export function SiteHeader() {
             Log in
           </Link>
           <Button variant="secondary" asChild>
-            <Link href="/#publish">Publish Trip</Link>
+            <Link href="/dashboard/create-trip">Publish Trip</Link>
           </Button>
         </div>
         <MobileNavigation />

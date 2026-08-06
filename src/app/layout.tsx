@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Cormorant_Garamond, Inter } from "next/font/google";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
@@ -19,6 +19,11 @@ const cormorant = Cormorant_Garamond({
 });
 
 export const metadata: Metadata = defaultMetadata;
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1
+};
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (

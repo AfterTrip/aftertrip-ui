@@ -172,3 +172,39 @@ test("my trips dashboard filters and switches tabs", async ({ page }) => {
   await page.getByRole("button", { name: /Clear search/i }).click();
   await expect(page.getByText("Munnar Monsoon Escape")).toBeVisible();
 });
+
+for (const width of widths) {
+  test(`create trip journey has no horizontal overflow at ${width}px`, async ({
+    page
+  }) => {
+    await page.setViewportSize({ width, height: width < 768 ? 844 : 1000 });
+    await page.goto("/dashboard/create-trip");
+
+    await expect(
+      page.getByRole("heading", { name: /^Create Trip$/i })
+    ).toBeVisible();
+    await expect(page.getByText(/Cover photo/i)).toBeVisible();
+
+    const overflow = await page.evaluate(() => {
+      return (
+        document.documentElement.scrollWidth -
+        document.documentElement.clientWidth
+      );
+    });
+
+    expect(overflow).toBeLessThanOrEqual(1);
+  });
+}
+
+test("create trip moves quickly through the journey", async ({ page }) => {
+  await page.goto("/dashboard/create-trip");
+  await page.getByRole("button", { name: /Save & Continue/i }).click();
+  await expect(
+    page.getByText(/Tell people what this trip felt like/i)
+  ).toBeVisible();
+  await expect(page.locator(".create-stepper button.incomplete")).toContainText(
+    "Basics"
+  );
+  await page.getByRole("button", { name: /Save & Continue/i }).click();
+  await expect(page.getByText(/Map out the route/i)).toBeVisible();
+});

@@ -57,7 +57,10 @@ export function EditProfilePage() {
           <Link href="/#footer">About</Link>
         </nav>
         <div className="dashboard-top-actions">
-          <Link className="dashboard-create-button" href="/#publish">
+          <Link
+            className="dashboard-create-button"
+            href="/dashboard/create-trip"
+          >
             <Plus aria-hidden="true" size={18} />
             Create Trip
           </Link>
@@ -163,7 +166,7 @@ export function EditProfilePage() {
           <Bookmark aria-hidden="true" size={22} />
           Bookmarks
         </button>
-        <Link className="create" href="/#publish">
+        <Link className="create" href="/dashboard/create-trip">
           <Plus aria-hidden="true" size={28} />
           <span>Create Trip</span>
         </Link>

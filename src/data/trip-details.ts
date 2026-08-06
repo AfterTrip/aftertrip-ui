@@ -24,7 +24,12 @@ export type TripDetail = {
   badges: string[];
   about?: string;
   itinerary?: Array<{ day: string; title: string; copy: string }>;
-  gallery?: Array<{ src: string; alt: string }>;
+  gallery?: Array<{
+    src: string;
+    alt: string;
+    type?: "image" | "video";
+    poster?: string;
+  }>;
   quickFacts?: Array<{ label: string; value: string }>;
   spend?: {
     label?: string;

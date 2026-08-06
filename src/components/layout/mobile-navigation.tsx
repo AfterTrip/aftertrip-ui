@@ -44,7 +44,7 @@ export function MobileNavigation() {
             </Dialog.Close>
             <Dialog.Close asChild>
               <Button asChild>
-                <Link href="/#publish">Publish Trip</Link>
+                <Link href="/dashboard/create-trip">Publish Trip</Link>
               </Button>
             </Dialog.Close>
           </div>
