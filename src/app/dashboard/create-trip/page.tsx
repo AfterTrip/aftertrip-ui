@@ -5,6 +5,15 @@ export const metadata = {
   description: "Create and publish a useful AfterTrip journey in minutes."
 };
 
-export default function DashboardCreateTripRoute() {
-  return <CreateTripPage />;
+type DashboardCreateTripRouteProps = {
+  searchParams?: Promise<{
+    trip?: string;
+  }>;
+};
+
+export default async function DashboardCreateTripRoute({
+  searchParams
+}: DashboardCreateTripRouteProps) {
+  const params = await searchParams;
+  return <CreateTripPage tripId={params?.trip} />;
 }

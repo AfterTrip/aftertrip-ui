@@ -1,12 +1,23 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
-import { Globe2 } from "lucide-react";
+import { usePathname } from "next/navigation";
 import { navigationItems } from "@/data/navigation";
 import { Button } from "@/components/ui/button";
-import { IconButton } from "@/components/ui/icon-button";
 import { MobileNavigation } from "./mobile-navigation";
 
 export function SiteHeader() {
+  const pathname = usePathname();
+
+  const isActive = (href: string) => {
+    if (href.includes("#")) return false;
+    if (href === "/explore")
+      return pathname === "/explore" || pathname.startsWith("/trips");
+    if (href === "/dashboard") return pathname.startsWith("/dashboard");
+    return pathname === href;
+  };
+
   return (
     <header className="site-header">
       <div className="container header-inner">
@@ -33,15 +44,17 @@ export function SiteHeader() {
         </Link>
         <nav className="desktop-nav" aria-label="Primary navigation">
           {navigationItems.map((item) => (
-            <Link key={item.label} href={item.href}>
+            <Link
+              className={isActive(item.href) ? "active" : undefined}
+              aria-current={isActive(item.href) ? "page" : undefined}
+              key={item.label}
+              href={item.href}
+            >
               {item.label}
             </Link>
           ))}
         </nav>
         <div className="desktop-actions">
-          <IconButton label="Choose language" className="header-globe">
-            <Globe2 aria-hidden="true" size={22} />
-          </IconButton>
           <Link className="login-link" href="/login">
             Log in
           </Link>

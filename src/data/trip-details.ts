@@ -1,11 +1,8 @@
-import { exploreTrips } from "@/data/explore-trips";
-
-export type DetailNote = {
-  title: string;
-  optional?: boolean;
-  body: string;
-  tone: "green" | "red" | "blue";
-};
+import {
+  exploreTrips,
+  type TripGroup,
+  type TripStyle
+} from "@/data/explore-trips";
 
 export type TripDetail = {
   slug: string;
@@ -17,12 +14,12 @@ export type TripDetail = {
   author: string;
   initials: string;
   avatarTone: "coral" | "teal" | "sand";
-  rating: string;
-  views?: string;
-  saves?: string;
-  recommendation?: string;
+  duration: string;
+  group: TripGroup;
+  styles: TripStyle[];
   badges: string[];
   about?: string;
+  highlights?: string[];
   itinerary?: Array<{ day: string; title: string; copy: string }>;
   gallery?: Array<{
     src: string;
@@ -38,12 +35,7 @@ export type TripDetail = {
     level?: string;
     note?: string;
   };
-  practicalTips?: string[];
-  notes?: DetailNote[];
-  transport?: {
-    title: string;
-    body: string;
-  };
+  goodToKnow?: string[];
 };
 
 const defaultGallery = [
@@ -75,13 +67,23 @@ export const tripDetails: TripDetail[] = [
     author: "Anisha Verma",
     initials: "AV",
     avatarTone: "teal",
-    rating: "4.8",
-    views: "12.6K",
-    saves: "320",
-    recommendation: "98%",
-    badges: ["7 Days", "Friends Trip", "Nov 2026", "INR 24,800 / person"],
+    duration: "7 Days",
+    group: "Friends",
+    styles: ["Nature", "Adventure", "Culture"],
+    badges: [
+      "7 Days",
+      "Friends",
+      "Nature, Adventure, Culture",
+      "INR 24,800 / person"
+    ],
     about:
       "Explore the best of Meghalaya with your crew: cave explorations in Mawsmai, sunrise at Shillong Peak, crystal water of Dawki, the living root bridges of Nongriat and the serene charm of Mawlynnong. Perfect mix of adventure, culture and slow travel.",
+    highlights: [
+      "Living root bridges",
+      "Crystal water at Dawki",
+      "Mawsmai cave walk",
+      "Mawlynnong village"
+    ],
     itinerary: [
       {
         day: "Day 1",
@@ -122,48 +124,23 @@ export const tripDetails: TripDetail[] = [
     gallery: defaultGallery,
     quickFacts: [
       { label: "Destination", value: "Meghalaya, India" },
-      { label: "Duration", value: "7 Days / 6 Nights" },
-      { label: "Group", value: "Friends Trip" },
-      { label: "Best Time", value: "Oct - Mar" },
-      { label: "Travel Style", value: "Nature + Adventure + Culture" },
-      { label: "Physical Rating", value: "Moderate" }
+      { label: "Duration", value: "7 Days" },
+      { label: "Group", value: "Friends" },
+      { label: "Trip style", value: "Nature, Adventure, Culture" },
+      { label: "Budget", value: "INR 24,800 / person" }
     ],
     spend: {
       label: "Shared by traveler",
       amount: "INR 24,800",
-      unit: "/ person (approx.)",
+      unit: "/ person",
       level: "Mid-range",
-      note: "Costs are approximate and may vary."
+      note: "Budget is shared by the traveler and may vary by travel dates."
     },
-    practicalTips: [
+    goodToKnow: [
       "Carry cash, rain gear and comfy shoes. Network is limited.",
       "ATMs are scarce beyond Shillong.",
       "Respect local culture and keep nature clean."
-    ],
-    notes: [
-      {
-        title: "Hidden Gems",
-        optional: true,
-        body: "Krem Liat Prah Cave, Wah Kaba Falls, Ranikor Viewpoint",
-        tone: "green"
-      },
-      {
-        title: "Things to Avoid",
-        optional: true,
-        body: "Littering, off-season landslides and over-crowded spots",
-        tone: "red"
-      },
-      {
-        title: "Practical Tips",
-        optional: true,
-        body: "Carry cash, rain gear and comfy shoes. Network is limited.",
-        tone: "blue"
-      }
-    ],
-    transport: {
-      title: "Transport",
-      body: "Hired tempo traveller for the group. Self-drive or private cab recommended for flexible stops."
-    }
+    ]
   }
 ];
 
@@ -204,13 +181,18 @@ export function getTripDetail(slug: string): TripDetail | undefined {
     author: trip.author,
     initials: trip.initials,
     avatarTone: trip.avatarTone,
-    rating: trip.rating,
-    views: "8.4K",
-    saves: "210",
-    recommendation: "96%",
-    badges: [trip.duration, trip.budgetLabel, trip.price + " / person"],
+    duration: trip.duration,
+    group: trip.group,
+    styles: trip.styles,
+    badges: [
+      trip.duration,
+      trip.group,
+      trip.styles.join(", "),
+      trip.price + " / person"
+    ],
     about:
       "This traveler-shared route balances memorable sights with enough breathing room for slow mornings, local food and spontaneous detours.",
+    highlights: trip.styles.slice(0, 3),
     itinerary: fallbackItinerary(trip.duration, trip.country),
     gallery: [
       trip.image,
@@ -219,15 +201,16 @@ export function getTripDetail(slug: string): TripDetail | undefined {
     quickFacts: [
       { label: "Destination", value: trip.place },
       { label: "Duration", value: trip.duration },
-      { label: "Travel Style", value: trip.budgetLabel },
-      { label: "Physical Rating", value: "Easy to Moderate" }
+      { label: "Group", value: trip.group },
+      { label: "Trip style", value: trip.styles.join(", ") },
+      { label: "Budget", value: trip.price + " / person" }
     ],
     spend: {
       label: "Shared by traveler",
       amount: trip.price,
-      unit: "/ person (approx.)",
+      unit: "/ person",
       level: trip.budgetLabel,
-      note: "Costs are approximate and may vary by season."
+      note: "Budget is shared by the traveler and may vary by travel dates."
     }
   };
 }

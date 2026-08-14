@@ -2,12 +2,23 @@
 
 import * as Dialog from "@radix-ui/react-dialog";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
 import { navigationItems } from "@/data/navigation";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 
 export function MobileNavigation() {
+  const pathname = usePathname();
+
+  const isActive = (href: string) => {
+    if (href.includes("#")) return false;
+    if (href === "/explore")
+      return pathname === "/explore" || pathname.startsWith("/trips");
+    if (href === "/dashboard") return pathname.startsWith("/dashboard");
+    return pathname === href;
+  };
+
   return (
     <Dialog.Root>
       <Dialog.Trigger asChild>
@@ -32,7 +43,13 @@ export function MobileNavigation() {
           <nav aria-label="Mobile navigation">
             {navigationItems.map((item) => (
               <Dialog.Close asChild key={item.label}>
-                <Link href={item.href}>{item.label}</Link>
+                <Link
+                  className={isActive(item.href) ? "active" : undefined}
+                  aria-current={isActive(item.href) ? "page" : undefined}
+                  href={item.href}
+                >
+                  {item.label}
+                </Link>
               </Dialog.Close>
             ))}
           </nav>

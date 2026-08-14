@@ -5,14 +5,13 @@ import Link from "next/link";
 import {
   Bell,
   Bookmark,
-  BookmarkCheck,
   ChevronDown,
   Eye,
-  FileText,
+  Heart,
   Home,
   ImagePlus,
+  Map,
   Menu,
-  MoreHorizontal,
   Pencil,
   Plus,
   Search,
@@ -37,7 +36,6 @@ type MyTrip = {
   views?: string;
   likes?: string;
   lastEdited?: string;
-  saved: boolean;
 };
 
 const trips: MyTrip[] = [
@@ -51,8 +49,7 @@ const trips: MyTrip[] = [
     days: "6 days",
     destination: "Meghalaya, India",
     views: "2.3K",
-    likes: "234",
-    saved: true
+    likes: "421"
   },
   {
     id: "bali-island-of-gods",
@@ -64,8 +61,7 @@ const trips: MyTrip[] = [
     days: "7 days",
     destination: "Bali, Indonesia",
     views: "1.8K",
-    likes: "189",
-    saved: false
+    likes: "316"
   },
   {
     id: "kashmir-in-spring",
@@ -77,8 +73,7 @@ const trips: MyTrip[] = [
     days: "7 days",
     destination: "Kashmir, India",
     views: "1.2K",
-    likes: "142",
-    saved: true
+    likes: "244"
   },
   {
     id: "thailand-getaway",
@@ -90,8 +85,7 @@ const trips: MyTrip[] = [
     days: "6 days",
     destination: "Thailand",
     views: "1.1K",
-    likes: "118",
-    saved: false
+    likes: "219"
   },
   {
     id: "munnar-monsoon-escape",
@@ -101,8 +95,7 @@ const trips: MyTrip[] = [
     alt: "Misty green hills and water in a tropical landscape",
     date: "Draft",
     destination: "Kerala, India",
-    lastEdited: "Last edited 2 days ago",
-    saved: false
+    lastEdited: "Last edited 2 days ago"
   },
   {
     id: "japan-cherry-blossom",
@@ -112,22 +105,20 @@ const trips: MyTrip[] = [
     alt: "Japanese pagoda near Mount Fuji at sunset",
     date: "Draft",
     destination: "Japan",
-    lastEdited: "Last edited 5 days ago",
-    saved: false
+    lastEdited: "Last edited 5 days ago"
   }
 ];
 
 const summary = [
   { label: "Trips", value: "7", caption: "Published", icon: Briefcase },
   { label: "Drafts", value: "2", caption: "Unpublished", icon: Pencil },
-  { label: "Saved", value: "14", caption: "Bookmarked", icon: Bookmark },
   { label: "Views", value: "12.4K", caption: "Profile", icon: Eye }
 ];
 
 const sidebarItems = [
   { label: "My Trips", href: "/dashboard", icon: Home, active: true },
-  { label: "Drafts", href: "/dashboard", icon: FileText },
-  { label: "Bookmarks", href: "/dashboard", icon: Bookmark },
+  { label: "Travel Footprint", href: "/dashboard/travel-footprint", icon: Map },
+  { label: "Bookmarks", href: "/dashboard/bookmarks", icon: Bookmark },
   { label: "Edit Profile", href: "/dashboard/edit-profile", icon: User }
 ];
 
@@ -135,9 +126,6 @@ export function MyTripsPage() {
   const [activeTab, setActiveTab] = useState<TripStatus>("published");
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState("latest");
-  const [savedIds, setSavedIds] = useState(
-    () => new Set(trips.filter((trip) => trip.saved).map((trip) => trip.id))
-  );
   const profilePhoto = "/images/hero/mountain-lake-traveler.png";
 
   const visibleTrips = useMemo(() => {
@@ -155,15 +143,6 @@ export function MyTripsPage() {
 
     return sort === "oldest" ? [...filtered].reverse() : filtered;
   }, [activeTab, query, sort]);
-
-  const toggleSaved = (id: string) => {
-    setSavedIds((current) => {
-      const next = new Set(current);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
 
   return (
     <main id="main-content" className="dashboard-page">
@@ -184,8 +163,8 @@ export function MyTripsPage() {
           aria-label="Dashboard navigation"
         >
           <Link href="/explore">Explore</Link>
+          <Link href="/#reviews">Reviews</Link>
           <Link href="/#how-it-works">How it works</Link>
-          <Link href="/#footer">About</Link>
         </nav>
         <div className="dashboard-top-actions">
           <Link
@@ -193,7 +172,7 @@ export function MyTripsPage() {
             href="/dashboard/create-trip"
           >
             <Plus aria-hidden="true" size={18} />
-            Create Trip
+            Publish Trip
           </Link>
           <button
             className="dashboard-icon-button"
@@ -262,7 +241,7 @@ export function MyTripsPage() {
             <p>Inspire others by publishing your next trip.</p>
             <Link href="/dashboard/create-trip">
               <Plus aria-hidden="true" size={18} />
-              Create Trip
+              Publish Trip
             </Link>
           </section>
         </aside>
@@ -383,31 +362,18 @@ export function MyTripsPage() {
                     <span>
                       {trip.status === "published" ? "Published" : "Draft"}
                     </span>
-                    <button
-                      type="button"
-                      aria-label={"Open actions for " + trip.title}
+                    <Link
+                      className="dashboard-card-edit"
+                      href={`/dashboard/create-trip?trip=${trip.id}`}
+                      aria-label={`Edit ${trip.title}`}
                     >
-                      <MoreHorizontal aria-hidden="true" size={20} />
-                    </button>
+                      <Pencil aria-hidden="true" size={15} />
+                      Edit
+                    </Link>
                   </div>
                   <div className="dashboard-trip-body">
                     <div className="dashboard-trip-title-row">
                       <h2>{trip.title}</h2>
-                      <button
-                        type="button"
-                        aria-label={
-                          (savedIds.has(trip.id)
-                            ? "Remove bookmark for "
-                            : "Bookmark ") + trip.title
-                        }
-                        onClick={() => toggleSaved(trip.id)}
-                      >
-                        {savedIds.has(trip.id) ? (
-                          <BookmarkCheck aria-hidden="true" size={20} />
-                        ) : (
-                          <Bookmark aria-hidden="true" size={20} />
-                        )}
-                      </button>
                     </div>
                     <p>
                       {trip.date}
@@ -423,12 +389,15 @@ export function MyTripsPage() {
                           <Eye aria-hidden="true" size={16} />
                           {trip.views}
                         </span>
-                        <span>♡ {trip.likes}</span>
+                        <span>
+                          <Heart aria-hidden="true" size={16} />
+                          {trip.likes}
+                        </span>
                       </div>
                     ) : (
                       <Link
                         className="dashboard-edit-link"
-                        href="/dashboard/create-trip"
+                        href={`/dashboard/create-trip?trip=${trip.id}`}
                       >
                         Continue editing
                       </Link>
@@ -466,18 +435,18 @@ export function MyTripsPage() {
           <Search aria-hidden="true" size={22} />
           Explore
         </Link>
-        <button type="button">
+        <Link href="/dashboard/bookmarks">
           <Bookmark aria-hidden="true" size={22} />
           Bookmarks
-        </button>
+        </Link>
         <Link className="create" href="/dashboard/create-trip">
           <Plus aria-hidden="true" size={28} />
-          <span>Create Trip</span>
+          <span>Publish Trip</span>
         </Link>
-        <button className="active" type="button">
+        <Link className="active" href="/dashboard">
           <Briefcase aria-hidden="true" size={22} />
           My Trips
-        </button>
+        </Link>
         <Link href="/dashboard/edit-profile">
           <User aria-hidden="true" size={22} />
           Profile

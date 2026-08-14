@@ -8,6 +8,8 @@ export const featuredTrips: Trip[] = [
     duration: "7 days",
     author: "Sarah Johnson",
     rating: "4.9",
+    views: "2.3K",
+    likes: "428",
     image: {
       src: "/images/trips/switzerland.png",
       alt: "Swiss alpine valley with green meadows and snow covered peaks"
@@ -20,6 +22,8 @@ export const featuredTrips: Trip[] = [
     duration: "5 days",
     author: "Alex Chen",
     rating: "4.8",
+    views: "1.8K",
+    likes: "312",
     image: {
       src: "/images/trips/bali.png",
       alt: "Turquoise Bali coastline with palms and white sand"
@@ -32,6 +36,8 @@ export const featuredTrips: Trip[] = [
     duration: "10 days",
     author: "Emma Wilson",
     rating: "4.9",
+    views: "1.2K",
+    likes: "286",
     image: {
       src: "/images/trips/iceland.png",
       alt: "Northern lights over a snowy Icelandic mountain cabin"
@@ -44,6 +50,8 @@ export const featuredTrips: Trip[] = [
     duration: "6 days",
     author: "Rahul Verma",
     rating: "4.7",
+    views: "1.1K",
+    likes: "241",
     image: {
       src: "/images/trips/thailand.png",
       alt: "Longtail boat floating between Thai limestone islands"

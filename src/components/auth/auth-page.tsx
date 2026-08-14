@@ -100,8 +100,9 @@ export function AuthPage() {
               Continue with Google
             </button>
             <p className="auth-terms">
-              By continuing, you agree to our <Link href="#terms">Terms</Link>{" "}
-              and <Link href="#privacy">Privacy Policy</Link>.
+              By continuing, you agree to our{" "}
+              <Link href="/legal#terms">Terms</Link> and{" "}
+              <Link href="/legal#privacy">Privacy Policy</Link>.
             </p>
           </div>
         </div>
@@ -141,8 +142,8 @@ export function AuthPage() {
             <LockKeyhole aria-hidden="true" size={26} />
             <p>
               By continuing, you agree to our{" "}
-              <Link href="#terms">Terms of Use</Link> and{" "}
-              <Link href="#privacy">Privacy Policy</Link>.
+              <Link href="/legal#terms">Terms of Use</Link> and{" "}
+              <Link href="/legal#privacy">Privacy Policy</Link>.
             </p>
           </div>
         </div>
@@ -183,10 +184,9 @@ export function AuthPage() {
           <p>Real journeys. Beautifully shared.</p>
         </div>
         <nav aria-label="Auth footer links">
-          <Link href="#help">Help Center</Link>
-          <Link href="#terms">Terms of Use</Link>
-          <Link href="#privacy">Privacy Policy</Link>
-          <Link href="#contact">Contact</Link>
+          <Link href="mailto:hello@aftertrip.com">hello@aftertrip.com</Link>
+          <Link href="/legal#terms">Terms of Use</Link>
+          <Link href="/legal#privacy">Privacy Policy</Link>
         </nav>
         <small>© 2026 AfterTrip. All rights reserved.</small>
       </footer>

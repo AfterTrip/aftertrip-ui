@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Star } from "lucide-react";
+import { Eye, Heart } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import type { Trip } from "@/types/trip";
 
@@ -35,9 +35,11 @@ export function TripCard({ trip, index }: TripCardProps) {
             />
             By {trip.author}
           </span>
-          <span className="rating">
-            <Star aria-hidden="true" size={16} fill="currentColor" />
-            {trip.rating}
+          <span className="trip-card-metrics">
+            <Eye aria-hidden="true" size={15} />
+            {trip.views ?? "1.2K"}
+            <Heart aria-hidden="true" size={15} />
+            {trip.likes ?? "240"}
           </span>
         </div>
       </div>

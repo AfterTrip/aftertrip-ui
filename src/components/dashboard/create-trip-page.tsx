@@ -5,49 +5,35 @@ import Link from "next/link";
 import {
   ArrowLeft,
   ArrowRight,
-  BedDouble,
   Bell,
-  Bike,
-  Bookmark,
-  Bus,
   CalendarDays,
-  Car,
   Check,
   ChevronDown,
   CircleDollarSign,
   Eye,
-  FileText,
+  Bookmark,
   Home,
   ImagePlus,
-  Info,
   Map,
   MapPin,
   Menu,
   MoreHorizontal,
   Pencil,
-  Plane,
   Play,
   Plus,
-  Route,
-  Save,
-  ShieldCheck,
   Sparkles,
-  Star,
-  Train,
   Upload,
   User,
   Users,
   X
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  searchVerifiedPlaces,
+  type VerifiedPlace
+} from "@/data/verified-places";
 
-type StepId =
-  | "basics"
-  | "about"
-  | "itinerary"
-  | "transport"
-  | "budget"
-  | "review";
+type StepId = "basics" | "about" | "itinerary" | "budget" | "review";
 type MediaItem = {
   id: string;
   url: string;
@@ -55,12 +41,18 @@ type MediaItem = {
   kind: "photo" | "video";
 };
 
+type ItineraryDay = {
+  id: string;
+  headline: string;
+  description: string;
+};
+
 const profilePhoto = "/images/hero/mountain-lake-traveler.png";
 
 const sidebarItems = [
   { label: "My Trips", href: "/dashboard", icon: Home },
-  { label: "Drafts", href: "/dashboard", icon: FileText },
-  { label: "Bookmarks", href: "/dashboard", icon: Bookmark },
+  { label: "Travel Footprint", href: "/dashboard/travel-footprint", icon: Map },
+  { label: "Bookmarks", href: "/dashboard/bookmarks", icon: Bookmark },
   { label: "Edit Profile", href: "/dashboard/edit-profile", icon: User }
 ];
 
@@ -74,38 +66,29 @@ const steps: Array<{
   {
     id: "basics",
     title: "Basics",
-    subtitle: "Trip essentials",
+    subtitle: "Essentials",
     icon: MapPin
   },
   {
     id: "about",
     title: "About Trip",
-    subtitle: "Vibe & media",
-    icon: Sparkles,
-    optional: true
+    subtitle: "Story & style",
+    icon: Sparkles
   },
   {
     id: "itinerary",
     title: "Itinerary",
-    subtitle: "Places & route",
+    subtitle: "Day-by-day plan",
     icon: Map,
-    optional: true
-  },
-  {
-    id: "transport",
-    title: "Stay & Transport",
-    subtitle: "Optional",
-    icon: BedDouble,
     optional: true
   },
   {
     id: "budget",
     title: "Budget",
-    subtitle: "Optional",
-    icon: CircleDollarSign,
-    optional: true
+    subtitle: "Budget details",
+    icon: CircleDollarSign
   },
-  { id: "review", title: "Review", subtitle: "Preview & publish", icon: Eye }
+  { id: "review", title: "Review", subtitle: "Final check", icon: Eye }
 ];
 
 const tripGroups = [
@@ -117,78 +100,249 @@ const tripGroups = [
   { label: "Other", icon: MoreHorizontal }
 ];
 
-const vibeOptions = [
+const tripStyleOptions = [
+  "Road trip",
+  "Trekking",
+  "Beach",
+  "City",
   "Nature",
   "Adventure",
   "Relaxed",
-  "Scenic",
+  "Budget",
+  "Luxury",
   "Food",
-  "Photography",
-  "Friends",
-  "Hidden gems"
-];
-const routeStops = [
-  "Shillong, Meghalaya",
-  "Cherrapunji, Meghalaya",
-  "Mawlynnong, Meghalaya",
-  "Dawki, Meghalaya"
-];
-const transportWays = [
-  { label: "Self-drive", icon: Car },
-  { label: "Cab", icon: Car },
-  { label: "Bike", icon: Bike },
-  { label: "Bus", icon: Bus },
-  { label: "Train", icon: Train },
-  { label: "Flight", icon: Plane },
-  { label: "Walk", icon: Route }
+  "Culture",
+  "Mountains",
+  "Wildlife",
+  "Camping",
+  "Spiritual",
+  "Nightlife",
+  "Winter Escape"
 ];
 const budgetRows = ["Stay", "Transport", "Food", "Activities", "Miscellaneous"];
 
-export function CreateTripPage() {
+const editableTripPrefills: Record<
+  string,
+  {
+    title: string;
+    destination: string;
+    startDate: string;
+    endDate: string;
+    tripGroup: string;
+    coverPhoto: MediaItem;
+    summary: string;
+    styles: string[];
+    highlights: string[];
+    itineraryDays: ItineraryDay[];
+    budgetAmount: string;
+  }
+> = {
+  "meghalaya-road-trip": {
+    title: "Meghalaya Road Trip",
+    destination: "Meghalaya, India",
+    startDate: "2024-05-12",
+    endDate: "2024-05-18",
+    tripGroup: "Friends",
+    coverPhoto: {
+      id: "meghalaya-cover",
+      url: "/images/cta/share-adventure.png",
+      name: "Meghalaya cover",
+      kind: "photo"
+    },
+    summary:
+      "A green, slow-paced road trip through misty hills, living roots and quiet villages.",
+    styles: ["Road trip", "Nature", "Adventure"],
+    highlights: ["Living root bridges", "Dawki river", "Cloudy hill roads"],
+    itineraryDays: [
+      {
+        id: "day-1",
+        headline: "Guwahati to Shillong",
+        description: "Arrive in Guwahati and drive toward Shillong."
+      },
+      {
+        id: "day-2",
+        headline: "Shillong to Cherrapunji",
+        description: "Waterfalls, viewpoints and misty cave walks."
+      }
+    ],
+    budgetAmount: "24800"
+  },
+  "bali-island-of-gods": {
+    title: "Bali: Island of Gods",
+    destination: "Bali, Indonesia",
+    startDate: "2024-04-03",
+    endDate: "2024-04-09",
+    tripGroup: "Couple",
+    coverPhoto: {
+      id: "bali-cover",
+      url: "/images/trips/bali.png",
+      name: "Bali cover",
+      kind: "photo"
+    },
+    summary:
+      "A sunny Bali escape with beaches, temples, food stops and relaxed coastal drives.",
+    styles: ["Beach", "Culture", "Food"],
+    highlights: ["Beach mornings", "Temple sunsets", "Local food"],
+    itineraryDays: [
+      {
+        id: "day-1",
+        headline: "Ubud arrival",
+        description: "Settle in, walk around local cafes and markets."
+      }
+    ],
+    budgetAmount: "54000"
+  },
+  "kashmir-in-spring": {
+    title: "Kashmir in Spring",
+    destination: "Kashmir, India",
+    startDate: "2024-03-15",
+    endDate: "2024-03-21",
+    tripGroup: "Family",
+    coverPhoto: {
+      id: "kashmir-cover",
+      url: "/images/trips/switzerland.png",
+      name: "Kashmir cover",
+      kind: "photo"
+    },
+    summary: "Snow peaks, valley views and quiet spring days across Kashmir.",
+    styles: ["Nature", "Mountains", "Relaxed"],
+    highlights: ["Spring valleys", "Mountain views", "Slow village walks"],
+    itineraryDays: [
+      {
+        id: "day-1",
+        headline: "Srinagar arrival",
+        description: "Arrive, settle in and take a relaxed evening walk."
+      }
+    ],
+    budgetAmount: "62000"
+  },
+  "thailand-getaway": {
+    title: "Thailand Getaway",
+    destination: "Thailand",
+    startDate: "2024-02-10",
+    endDate: "2024-02-16",
+    tripGroup: "Friends",
+    coverPhoto: {
+      id: "thailand-cover",
+      url: "/images/trips/thailand.png",
+      name: "Thailand cover",
+      kind: "photo"
+    },
+    summary: "Island hopping, clear water and easy beach days with friends.",
+    styles: ["Beach", "Relaxed", "Adventure"],
+    highlights: ["Island hopping", "Boat rides", "Turquoise water"],
+    itineraryDays: [
+      {
+        id: "day-1",
+        headline: "Island arrival",
+        description: "Check in near the beach and keep the first day relaxed."
+      }
+    ],
+    budgetAmount: "68000"
+  },
+  "munnar-monsoon-escape": {
+    title: "Munnar Monsoon Escape",
+    destination: "Munnar, Kerala, India",
+    startDate: "2024-07-08",
+    endDate: "2024-07-12",
+    tripGroup: "Solo",
+    coverPhoto: {
+      id: "munnar-cover",
+      url: "/images/destinations/thailand.png",
+      name: "Munnar cover",
+      kind: "photo"
+    },
+    summary: "A quiet monsoon escape through tea gardens and misty hill roads.",
+    styles: ["Nature", "Mountains", "Relaxed"],
+    highlights: ["Tea gardens", "Rainy viewpoints", "Calm stays"],
+    itineraryDays: [
+      {
+        id: "day-1",
+        headline: "Arrive in Munnar",
+        description: "Check in and explore nearby tea garden viewpoints."
+      }
+    ],
+    budgetAmount: "18000"
+  },
+  "japan-cherry-blossom": {
+    title: "Japan Cherry Blossom",
+    destination: "Japan",
+    startDate: "2024-04-01",
+    endDate: "2024-04-07",
+    tripGroup: "Couple",
+    coverPhoto: {
+      id: "japan-cover",
+      url: "/images/destinations/japan.png",
+      name: "Japan cover",
+      kind: "photo"
+    },
+    summary:
+      "Cherry blossom walks, temple visits and quiet city evenings in Japan.",
+    styles: ["Culture", "City", "Food"],
+    highlights: ["Cherry blossoms", "Temple walks", "Local trains"],
+    itineraryDays: [
+      {
+        id: "day-1",
+        headline: "Tokyo arrival",
+        description: "Arrive, settle in and explore a nearby blossom walk."
+      }
+    ],
+    budgetAmount: "115000"
+  }
+};
+
+type CreateTripPageProps = {
+  tripId?: string;
+};
+
+export function CreateTripPage({ tripId }: CreateTripPageProps = {}) {
+  const initialTrip = tripId ? editableTripPrefills[tripId] : undefined;
+  const initialDestination = initialTrip
+    ? searchVerifiedPlaces(initialTrip.destination)[0]
+    : undefined;
   const [stepIndex, setStepIndex] = useState(0);
-  const [title, setTitle] = useState("");
-  const [destination, setDestination] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [tripGroup, setTripGroup] = useState("");
-  const [coverPhoto, setCoverPhoto] = useState<MediaItem | undefined>();
-  const [summary, setSummary] = useState(
-    "A misty hill escape with waterfalls, living root bridges and slow local food stops."
+  const [title, setTitle] = useState(initialTrip?.title ?? "");
+  const [destination, setDestination] = useState(
+    initialTrip?.destination ?? ""
   );
-  const [selectedVibes, setSelectedVibes] = useState(
-    new Set(["Nature", "Adventure", "Scenic"])
+  const [selectedDestination, setSelectedDestination] = useState<
+    VerifiedPlace | undefined
+  >(initialDestination);
+  const [startDate, setStartDate] = useState(initialTrip?.startDate ?? "");
+  const [endDate, setEndDate] = useState(initialTrip?.endDate ?? "");
+  const [tripGroup, setTripGroup] = useState(initialTrip?.tripGroup ?? "");
+  const [coverPhoto, setCoverPhoto] = useState<MediaItem | undefined>(
+    initialTrip?.coverPhoto
+  );
+  const [summary, setSummary] = useState(initialTrip?.summary ?? "");
+  const [selectedTripStyles, setSelectedTripStyles] = useState(
+    new Set<string>(initialTrip?.styles ?? [])
   );
   const [highlightInput, setHighlightInput] = useState("");
-  const [highlights, setHighlights] = useState([
-    "Scenic mountain drives",
-    "Living root bridges",
-    "Peaceful villages"
+  const [highlights, setHighlights] = useState<string[]>(
+    initialTrip?.highlights ?? []
+  );
+  const [goodToKnow, setGoodToKnow] = useState("");
+  const [media, setMedia] = useState<MediaItem[]>([]);
+  const [previewMedia, setPreviewMedia] = useState<MediaItem | undefined>();
+  const [itineraryDays, setItineraryDays] = useState<ItineraryDay[]>([
+    ...(initialTrip?.itineraryDays ?? [
+      { id: "day-1", headline: "", description: "" }
+    ])
   ]);
-  const [media, setMedia] = useState<MediaItem[]>([
-    {
-      id: "cover",
-      url: "/images/cta/share-adventure.png",
-      name: "Cover photo",
-      kind: "photo"
-    },
-    {
-      id: "bali",
-      url: "/images/trips/bali.png",
-      name: "Beach memory",
-      kind: "photo"
-    },
-    {
-      id: "japan",
-      url: "/images/destinations/japan.png",
-      name: "Temple stop",
-      kind: "photo"
-    }
-  ]);
-  const [pace, setPace] = useState("Balanced");
-  const [transport, setTransport] = useState("Self-drive");
-  const [stayPrivacy, setStayPrivacy] = useState("Share exact stay names");
   const [budgetMode, setBudgetMode] = useState("Exact amount");
-  const [visibility, setVisibility] = useState("Public trip");
+  const [budgetCurrency, setBudgetCurrency] = useState("INR");
+  const [budgetAmount, setBudgetAmount] = useState(
+    initialTrip?.budgetAmount ?? ""
+  );
+  const [budgetMin, setBudgetMin] = useState("");
+  const [budgetMax, setBudgetMax] = useState("");
+  const [budgetCategories, setBudgetCategories] = useState(
+    Object.fromEntries(budgetRows.map((row) => [row, ""]))
+  );
+  const [autosaveStatus, setAutosaveStatus] = useState("Autosaved");
+  const hasMounted = useRef(false);
+  const autosaveTimer = useRef<number | undefined>(undefined);
 
   const currentStep = steps[stepIndex];
   const duration = useMemo(
@@ -197,20 +351,62 @@ export function CreateTripPage() {
   );
   const basicsComplete = Boolean(
     title.trim() &&
-      destination.trim() &&
+      selectedDestination &&
       startDate &&
       endDate &&
       duration &&
       coverPhoto &&
       tripGroup
   );
-  const completedSections = useMemo(
-    () =>
-      steps
-        .slice(0, stepIndex)
-        .filter((step) => step.id !== "basics" || basicsComplete).length,
-    [basicsComplete, stepIndex]
-  );
+  const aboutComplete = Boolean(summary.trim() && selectedTripStyles.size > 0);
+  const budgetComplete =
+    budgetMode === "Exact amount"
+      ? Boolean(budgetAmount.trim())
+      : Boolean(budgetMin.trim() && budgetMax.trim());
+  const requiredComplete = basicsComplete && aboutComplete && budgetComplete;
+  useEffect(() => {
+    if (!hasMounted.current) {
+      hasMounted.current = true;
+      return;
+    }
+
+    setAutosaveStatus("Saving...");
+    const timeout = window.setTimeout(
+      () => setAutosaveStatus("Autosaved"),
+      500
+    );
+    return () => window.clearTimeout(timeout);
+  }, [
+    title,
+    destination,
+    selectedDestination,
+    startDate,
+    endDate,
+    tripGroup,
+    coverPhoto,
+    summary,
+    selectedTripStyles,
+    highlightInput,
+    highlights,
+    goodToKnow,
+    media,
+    itineraryDays,
+    budgetMode,
+    budgetCurrency,
+    budgetAmount,
+    budgetMin,
+    budgetMax,
+    budgetCategories
+  ]);
+
+  const markAutosaving = () => {
+    setAutosaveStatus("Saving...");
+    if (autosaveTimer.current) window.clearTimeout(autosaveTimer.current);
+    autosaveTimer.current = window.setTimeout(
+      () => setAutosaveStatus("Autosaved"),
+      500
+    );
+  };
 
   const addHighlight = () => {
     const next = highlightInput.trim();
@@ -232,6 +428,15 @@ export function CreateTripPage() {
           : ("photo" as const)
       }));
     setMedia((items) => [...items, ...next].slice(0, 10));
+  };
+
+  const removeMedia = (id: string) => {
+    setMedia((items) => {
+      const removed = items.find((item) => item.id === id);
+      if (removed?.url.startsWith("blob:")) URL.revokeObjectURL(removed.url);
+      return items.filter((item) => item.id !== id);
+    });
+    setPreviewMedia((item) => (item?.id === id ? undefined : item));
   };
 
   const addCoverPhoto = (files: FileList | null) => {
@@ -267,20 +472,26 @@ export function CreateTripPage() {
               <h1 id="create-trip-title">Create Trip</h1>
               <p>Share your journey. Inspire others.</p>
             </div>
-            <button type="button">
-              <Save aria-hidden="true" size={18} />
-              Save as draft
-            </button>
+            <p className="autosave-status" aria-live="polite">
+              <Check aria-hidden="true" size={18} />
+              {autosaveStatus}
+            </p>
           </div>
 
           <nav className="create-stepper" aria-label="Trip creation steps">
             {steps.map((step, index) => {
               const Icon = step.icon;
               const isActive = index === stepIndex;
-              const isDone =
-                index < stepIndex && (step.id !== "basics" || basicsComplete);
-              const isIncomplete =
-                step.id === "basics" && index < stepIndex && !basicsComplete;
+              const stepComplete =
+                step.id === "basics"
+                  ? basicsComplete
+                  : step.id === "about"
+                    ? aboutComplete
+                    : step.id === "budget"
+                      ? budgetComplete
+                      : true;
+              const isDone = index < stepIndex && stepComplete;
+              const isIncomplete = index < stepIndex && !stepComplete;
               return (
                 <button
                   key={step.id}
@@ -314,16 +525,10 @@ export function CreateTripPage() {
             })}
           </nav>
 
-          {currentStep.optional ? (
-            <p className="create-optional-note">
-              <Info aria-hidden="true" size={18} />
-              Most fields on this step are optional. Add only what helps other
-              travelers.
-            </p>
-          ) : null}
-
           <form
             className="create-step-card"
+            onInput={markAutosaving}
+            onChange={markAutosaving}
             onSubmit={(event) => {
               event.preventDefault();
               goNext();
@@ -335,6 +540,8 @@ export function CreateTripPage() {
                 setTitle={setTitle}
                 destination={destination}
                 setDestination={setDestination}
+                selectedDestination={selectedDestination}
+                setSelectedDestination={setSelectedDestination}
                 startDate={startDate}
                 setStartDate={setStartDate}
                 endDate={endDate}
@@ -350,46 +557,50 @@ export function CreateTripPage() {
               <AboutStep
                 summary={summary}
                 setSummary={setSummary}
-                selectedVibes={selectedVibes}
-                setSelectedVibes={setSelectedVibes}
+                selectedTripStyles={selectedTripStyles}
+                setSelectedTripStyles={setSelectedTripStyles}
                 highlightInput={highlightInput}
                 setHighlightInput={setHighlightInput}
                 highlights={highlights}
+                goodToKnow={goodToKnow}
+                setGoodToKnow={setGoodToKnow}
                 addHighlight={addHighlight}
                 setHighlights={setHighlights}
                 addMedia={addMedia}
                 media={media}
+                removeMedia={removeMedia}
+                setPreviewMedia={setPreviewMedia}
               />
             ) : null}
             {currentStep.id === "itinerary" ? (
-              <ItineraryStep pace={pace} setPace={setPace} />
-            ) : null}
-            {currentStep.id === "transport" ? (
-              <TransportStep
-                transport={transport}
-                setTransport={setTransport}
-                stayPrivacy={stayPrivacy}
-                setStayPrivacy={setStayPrivacy}
-              />
+              <ItineraryStep days={itineraryDays} setDays={setItineraryDays} />
             ) : null}
             {currentStep.id === "budget" ? (
               <BudgetStep
                 budgetMode={budgetMode}
                 setBudgetMode={setBudgetMode}
+                budgetCurrency={budgetCurrency}
+                setBudgetCurrency={setBudgetCurrency}
+                budgetAmount={budgetAmount}
+                setBudgetAmount={setBudgetAmount}
+                budgetMin={budgetMin}
+                setBudgetMin={setBudgetMin}
+                budgetMax={budgetMax}
+                setBudgetMax={setBudgetMax}
+                budgetCategories={budgetCategories}
+                setBudgetCategories={setBudgetCategories}
               />
             ) : null}
             {currentStep.id === "review" ? (
               <ReviewStep
                 title={title}
-                destination={destination}
+                destination={selectedDestination?.label || destination}
                 duration={duration}
-                media={media}
                 coverPhoto={coverPhoto}
                 highlights={highlights}
-                completedSections={completedSections}
-                visibility={visibility}
-                setVisibility={setVisibility}
                 basicsComplete={basicsComplete}
+                aboutComplete={aboutComplete}
+                budgetComplete={budgetComplete}
               />
             ) : null}
 
@@ -411,11 +622,11 @@ export function CreateTripPage() {
                   <button
                     type="button"
                     className="primary"
-                    disabled={!basicsComplete}
+                    disabled={!requiredComplete}
                     title={
-                      basicsComplete
+                      requiredComplete
                         ? "Publish trip"
-                        : "Complete Basics before publishing"
+                        : "Complete all required sections before publishing"
                     }
                   >
                     <Sparkles aria-hidden="true" size={19} />
@@ -423,7 +634,7 @@ export function CreateTripPage() {
                   </button>
                 ) : (
                   <button type="submit" className="primary">
-                    Save & Continue
+                    Continue
                     <ArrowRight aria-hidden="true" size={20} />
                   </button>
                 )}
@@ -432,6 +643,10 @@ export function CreateTripPage() {
           </form>
         </section>
       </div>
+      <MediaLightbox
+        item={previewMedia}
+        onClose={() => setPreviewMedia(undefined)}
+      />
     </main>
   );
 }
@@ -452,8 +667,8 @@ function DashboardTopbar() {
       </Link>
       <nav className="dashboard-desktop-nav" aria-label="Dashboard navigation">
         <Link href="/explore">Explore</Link>
+        <Link href="/#reviews">Reviews</Link>
         <Link href="/#how-it-works">How it works</Link>
-        <Link href="/#footer">About</Link>
       </nav>
       <div className="dashboard-top-actions">
         <button
@@ -544,6 +759,62 @@ function MediaPreview({
   return <Image src={src} alt={alt} fill sizes={sizes} />;
 }
 
+function MediaLightbox({
+  item,
+  onClose
+}: {
+  item?: MediaItem;
+  onClose: () => void;
+}) {
+  if (!item) return null;
+
+  return (
+    <div
+      className="gallery-lightbox create-media-lightbox"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Uploaded media preview"
+    >
+      <button
+        className="gallery-lightbox-backdrop"
+        type="button"
+        aria-label="Dismiss media preview"
+        onClick={onClose}
+      />
+      <div className="gallery-lightbox-panel">
+        <div className="gallery-lightbox-topbar">
+          <p>
+            <span>{item.kind === "video" ? "Video" : "Photo"}</span>
+            {item.name}
+          </p>
+          <button
+            className="gallery-close"
+            type="button"
+            aria-label="Close media preview"
+            onClick={onClose}
+          >
+            <X aria-hidden="true" size={24} />
+          </button>
+        </div>
+        <figure>
+          {item.kind === "video" ? (
+            <video src={item.url} controls autoPlay playsInline />
+          ) : item.url.startsWith("blob:") ? (
+            <span
+              className="native-media-lightbox-image"
+              style={{ backgroundImage: "url(" + item.url + ")" }}
+              role="img"
+              aria-label={item.name}
+            />
+          ) : (
+            <Image src={item.url} alt={item.name} fill sizes="100vw" priority />
+          )}
+        </figure>
+      </div>
+    </div>
+  );
+}
+
 function getTripDuration(startDate: string, endDate: string) {
   if (!startDate || !endDate) return "";
   const start = new Date(startDate + "T00:00:00");
@@ -554,11 +825,30 @@ function getTripDuration(startDate: string, endDate: string) {
   return days === 1 ? "1 day" : days + " days";
 }
 
+function numericOnly(value: string) {
+  return value.replace(/\D/g, "");
+}
+
+function getTodayInputDate() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function clampPastDate(value: string, maxDate: string) {
+  if (!value) return "";
+  return value > maxDate ? maxDate : value;
+}
+
 function BasicsStep({
   title,
   setTitle,
   destination,
   setDestination,
+  selectedDestination,
+  setSelectedDestination,
   startDate,
   setStartDate,
   endDate,
@@ -573,6 +863,8 @@ function BasicsStep({
   setTitle: (value: string) => void;
   destination: string;
   setDestination: (value: string) => void;
+  selectedDestination?: VerifiedPlace;
+  setSelectedDestination: (value: VerifiedPlace | undefined) => void;
   startDate: string;
   setStartDate: (value: string) => void;
   endDate: string;
@@ -583,6 +875,20 @@ function BasicsStep({
   addCoverPhoto: (files: FileList | null) => void;
   coverPhoto?: MediaItem;
 }) {
+  const todayDate = getTodayInputDate();
+  const destinationOptions = searchVerifiedPlaces(destination);
+  const updateStartDate = (value: string) => {
+    const nextDate = clampPastDate(value, todayDate);
+    setStartDate(nextDate);
+    if (endDate && nextDate && endDate < nextDate) {
+      setEndDate("");
+    }
+  };
+  const updateEndDate = (value: string) => {
+    const nextDate = clampPastDate(value, todayDate);
+    setEndDate(startDate && nextDate < startDate ? "" : nextDate);
+  };
+
   return (
     <div className="create-basics-grid">
       <section>
@@ -606,16 +912,54 @@ function BasicsStep({
         </label>
         <label>
           Destination *
-          <span>
+          <span className="verified-place-field">
             <input
               value={destination}
-              onChange={(event) => setDestination(event.target.value)}
-              placeholder="e.g. Meghalaya, India"
+              onChange={(event) => {
+                setDestination(event.target.value);
+                setSelectedDestination(undefined);
+              }}
+              placeholder="Search and select a real place"
               aria-required="true"
+              aria-invalid={Boolean(destination && !selectedDestination)}
             />
             <MapPin aria-hidden="true" size={20} />
           </span>
-          <em>Add country or region</em>
+          <em>
+            {selectedDestination
+              ? `Verified coordinates: ${selectedDestination.coordinates.lat.toFixed(4)}, ${selectedDestination.coordinates.lng.toFixed(4)}`
+              : "Select a verified result. Free-typed locations cannot be published."}
+          </em>
+          {destination && !selectedDestination ? (
+            <div className="verified-place-results">
+              {destinationOptions.length ? (
+                destinationOptions.map((place) => (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedDestination(place);
+                      setDestination(place.label);
+                    }}
+                    key={place.id}
+                  >
+                    <MapPin aria-hidden="true" size={17} />
+                    <span>
+                      <strong>{place.label}</strong>
+                      <small>
+                        {place.coordinates.lat.toFixed(4)},{" "}
+                        {place.coordinates.lng.toFixed(4)}
+                      </small>
+                    </span>
+                  </button>
+                ))
+              ) : (
+                <p>
+                  No verified place found. Backend map search will handle wider
+                  coverage later.
+                </p>
+              )}
+            </div>
+          ) : null}
         </label>
         <div className="two-fields travel-date-fields">
           <label>
@@ -625,7 +969,8 @@ function BasicsStep({
               <input
                 type="date"
                 value={startDate}
-                onChange={(event) => setStartDate(event.target.value)}
+                max={todayDate}
+                onChange={(event) => updateStartDate(event.target.value)}
                 aria-required="true"
               />
             </span>
@@ -638,7 +983,8 @@ function BasicsStep({
                 type="date"
                 value={endDate}
                 min={startDate || undefined}
-                onChange={(event) => setEndDate(event.target.value)}
+                max={todayDate}
+                onChange={(event) => updateEndDate(event.target.value)}
                 aria-required="true"
               />
             </span>
@@ -721,56 +1067,68 @@ function BasicsStep({
 function AboutStep({
   summary,
   setSummary,
-  selectedVibes,
-  setSelectedVibes,
+  selectedTripStyles,
+  setSelectedTripStyles,
   highlightInput,
   setHighlightInput,
   highlights,
+  goodToKnow,
+  setGoodToKnow,
   addHighlight,
   setHighlights,
   addMedia,
+  removeMedia,
+  setPreviewMedia,
   media
 }: {
   summary: string;
   setSummary: (value: string) => void;
-  selectedVibes: Set<string>;
-  setSelectedVibes: (value: Set<string>) => void;
+  selectedTripStyles: Set<string>;
+  setSelectedTripStyles: (value: Set<string>) => void;
   highlightInput: string;
   setHighlightInput: (value: string) => void;
   highlights: string[];
+  goodToKnow: string;
+  setGoodToKnow: (value: string) => void;
   addHighlight: () => void;
   setHighlights: (value: string[]) => void;
   addMedia: (files: FileList | null) => void;
+  removeMedia: (id: string) => void;
+  setPreviewMedia: (item: MediaItem) => void;
   media: MediaItem[];
 }) {
   const toggle = (label: string) => {
-    const next = new Set(selectedVibes);
+    const next = new Set(selectedTripStyles);
     if (next.has(label)) next.delete(label);
     else next.add(label);
-    setSelectedVibes(next);
+    setSelectedTripStyles(next);
   };
   return (
     <div className="create-two-column">
       <section>
         <h2>Tell people what this trip felt like</h2>
-        <p>A short summary, a vibe and a few highlights are enough.</p>
+        <p>Add a short summary and pick at least one trip style.</p>
         <label>
-          Trip summary{" "}
+          Trip summary *
           <textarea
             value={summary}
             maxLength={300}
             onChange={(event) => setSummary(event.target.value)}
             placeholder="Share a short intro about your trip..."
+            aria-required="true"
           />
           <small>{summary.length} / 300</small>
         </label>
         <div className="create-chip-section">
-          <h3>Trip vibe</h3>
+          <h3>Trip style *</h3>
+          <p>What kind of experience was this?</p>
           <div>
-            {vibeOptions.map((label) => (
+            {tripStyleOptions.map((label) => (
               <button
                 type="button"
-                className={selectedVibes.has(label) ? "selected" : undefined}
+                className={
+                  selectedTripStyles.has(label) ? "selected" : undefined
+                }
                 key={label}
                 onClick={() => toggle(label)}
               >
@@ -781,7 +1139,7 @@ function AboutStep({
           </div>
         </div>
         <div className="highlight-builder">
-          <h3>Top highlights</h3>
+          <h3>Top highlights (optional)</h3>
           <div>
             <input
               value={highlightInput}
@@ -812,32 +1170,17 @@ function AboutStep({
         </div>
       </section>
       <aside>
-        <section>
-          <h2>Best for</h2>
-          <div className="mini-choice-grid">
-            {[
-              "Friends",
-              "Couples",
-              "Solo travelers",
-              "Families",
-              "First timers"
-            ].map((item) => (
-              <button type="button" key={item}>
-                <Users aria-hidden="true" size={17} />
-                {item}
-              </button>
-            ))}
-          </div>
-        </section>
-        <section>
-          <h2>Good to know</h2>
+        <section className="good-to-know-card">
+          <h2>Good to know (optional)</h2>
           <textarea
-            placeholder="Best season, permits, local transport notes..."
+            value={goodToKnow}
+            onChange={(event) => setGoodToKnow(event.target.value)}
+            placeholder="Best season, permits, local tips..."
             maxLength={300}
           />
         </section>
         <section className="media-upload-panel">
-          <h2>Share photos & videos</h2>
+          <h2>Share photos & videos (optional)</h2>
           <p>Add the best few. Videos make the trip feel alive.</p>
           <div className="media-strip">
             <label>
@@ -847,20 +1190,38 @@ function AboutStep({
                 type="file"
                 multiple
                 accept="image/*,video/*"
-                onChange={(event) => addMedia(event.target.files)}
+                onChange={(event) => {
+                  addMedia(event.target.files);
+                  event.currentTarget.value = "";
+                }}
               />
             </label>
-            {media.slice(0, 4).map((item) => (
+            {media.slice(0, 6).map((item) => (
               <article key={item.id}>
-                <MediaPreview
-                  item={item}
-                  fallback="/images/cta/share-adventure.png"
-                  alt={item.name}
-                  sizes="90px"
-                />
-                {item.kind === "video" ? (
-                  <Play aria-hidden="true" size={18} />
-                ) : null}
+                <button
+                  className="media-preview-trigger"
+                  type="button"
+                  aria-label={"Preview " + item.name}
+                  onClick={() => setPreviewMedia(item)}
+                >
+                  <MediaPreview
+                    item={item}
+                    fallback="/images/cta/share-adventure.png"
+                    alt={item.name}
+                    sizes="90px"
+                  />
+                  {item.kind === "video" ? (
+                    <Play aria-hidden="true" size={18} />
+                  ) : null}
+                </button>
+                <button
+                  className="media-remove-button"
+                  type="button"
+                  aria-label={"Remove " + item.name}
+                  onClick={() => removeMedia(item.id)}
+                >
+                  <X aria-hidden="true" size={14} />
+                </button>
               </article>
             ))}
           </div>
@@ -871,247 +1232,134 @@ function AboutStep({
 }
 
 function ItineraryStep({
-  pace,
-  setPace
+  days,
+  setDays
 }: {
-  pace: string;
-  setPace: (value: string) => void;
+  days: ItineraryDay[];
+  setDays: (value: ItineraryDay[]) => void;
 }) {
+  const updateDay = (
+    id: string,
+    field: "headline" | "description",
+    value: string
+  ) => {
+    setDays(
+      days.map((day) => (day.id === id ? { ...day, [field]: value } : day))
+    );
+  };
+
+  const addDay = () => {
+    setDays([
+      ...days,
+      { id: "day-" + Date.now(), headline: "", description: "" }
+    ]);
+  };
+
+  const removeDay = (id: string) => {
+    setDays(days.length === 1 ? days : days.filter((day) => day.id !== id));
+  };
+
   return (
-    <div className="create-two-column route-layout">
-      <section>
-        <h2>Map out the route</h2>
-        <p>Add the places in order. Day-wise notes are optional.</p>
-        <div className="two-fields">
-          <label>
-            Start point *
-            <span>
-              <MapPin aria-hidden="true" size={18} />
-              <input defaultValue="Guwahati, Assam" />
-              <X aria-hidden="true" size={17} />
-            </span>
-          </label>
-          <label>
-            End point *
-            <span>
-              <MapPin aria-hidden="true" size={18} />
-              <input defaultValue="Guwahati, Assam" />
-              <X aria-hidden="true" size={17} />
-            </span>
-          </label>
-        </div>
-        <div className="route-stops">
-          <h3>Stops</h3>
-          {routeStops.map((stop, index) => (
-            <article key={stop}>
-              <MoreHorizontal aria-hidden="true" size={18} />
-              <span>{index + 1}</span>
-              <strong>{stop}</strong>
-              <button type="button">
+    <section className="itinerary-builder">
+      <div>
+        <h2>Day-by-day itinerary (optional)</h2>
+        <p>Add a simple headline and short note for each day.</p>
+      </div>
+      <div className="itinerary-day-list">
+        {days.map((day, index) => (
+          <article key={day.id}>
+            <span>Day {index + 1}</span>
+            <div>
+              <label>
+                Headline (optional)
+                <input
+                  value={day.headline}
+                  onChange={(event) =>
+                    updateDay(day.id, "headline", event.target.value)
+                  }
+                  placeholder="e.g. Shillong to Cherrapunji"
+                  maxLength={80}
+                />
+              </label>
+              <label>
+                Description (optional)
+                <textarea
+                  value={day.description}
+                  onChange={(event) =>
+                    updateDay(day.id, "description", event.target.value)
+                  }
+                  placeholder="What happened this day? Add the route, moments, tips, or places you loved."
+                  maxLength={240}
+                />
+                <small>{day.description.length} / 240</small>
+              </label>
+            </div>
+            {days.length > 1 ? (
+              <button
+                type="button"
+                aria-label={"Remove day " + (index + 1)}
+                onClick={() => removeDay(day.id)}
+              >
                 <X aria-hidden="true" size={17} />
               </button>
-            </article>
-          ))}
-          <button type="button">
-            <Plus aria-hidden="true" size={17} />
-            Add stop
-          </button>
-        </div>
-        <div className="create-chip-section">
-          <h3>Travel pace</h3>
-          <div>
-            {["Relaxed", "Balanced", "Packed"].map((item) => (
-              <button
-                type="button"
-                className={pace === item ? "selected" : undefined}
-                onClick={() => setPace(item)}
-                key={item}
-              >
-                <Route aria-hidden="true" size={17} />
-                {item}
-              </button>
-            ))}
-          </div>
-        </div>
-        <section className="day-notes">
-          <h3>Optional day-wise notes</h3>
-          <div>
-            {[
-              "Guwahati to Shillong",
-              "Shillong to Cherrapunji",
-              "Cherrapunji to Mawlynnong"
-            ].map((item, index) => (
-              <article key={item}>
-                <strong>Day {index + 1}</strong>
-                <b>{item}</b>
-                <p>Short note about what made this day useful.</p>
-              </article>
-            ))}
-          </div>
-        </section>
-      </section>
-      <aside>
-        <section className="route-preview">
-          <h2>Quick route preview</h2>
-          {["Guwahati, Assam", ...routeStops, "Guwahati, Assam"].map(
-            (stop, index) => (
-              <p key={stop + index}>
-                <span /> <strong>{stop}</strong>
-                <small>
-                  {index === 0
-                    ? "Start"
-                    : index === 5
-                      ? "End"
-                      : "Stop " + index}
-                </small>
-              </p>
-            )
-          )}
-          <footer>
-            <Car aria-hidden="true" size={17} />7 days • 420 km • Self-drive
-          </footer>
-        </section>
-        <section>
-          <h2>Good to know</h2>
-          <textarea
-            placeholder="Road conditions, permits, local tips..."
-            maxLength={300}
-          />
-        </section>
-      </aside>
-    </div>
-  );
-}
-
-function TransportStep({
-  transport,
-  setTransport,
-  stayPrivacy,
-  setStayPrivacy
-}: {
-  transport: string;
-  setTransport: (value: string) => void;
-  stayPrivacy: string;
-  setStayPrivacy: (value: string) => void;
-}) {
-  return (
-    <div className="create-two-column transport-layout">
-      <section>
-        <h2>How did you get around?</h2>
-        <p>Choose only what feels useful to future travelers.</p>
-        <div className="icon-choice-grid">
-          {transportWays.map((item) => {
-            const Icon = item.icon;
-            return (
-              <button
-                type="button"
-                className={transport === item.label ? "selected" : undefined}
-                onClick={() => setTransport(item.label)}
-                key={item.label}
-              >
-                <Icon aria-hidden="true" size={19} />
-                {item.label}
-              </button>
-            );
-          })}
-        </div>
-        <label>
-          Main transport used
-          <select
-            value={transport}
-            onChange={(event) => setTransport(event.target.value)}
-          >
-            {transportWays.map((item) => (
-              <option key={item.label}>{item.label}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Optional transport notes
-          <textarea
-            placeholder="Road conditions, tolls, parking, local transport notes..."
-            maxLength={300}
-          />
-        </label>
-      </section>
-      <aside>
-        <section>
-          <h2>Stay recommendations</h2>
-          <div className="stay-card">
-            <Image
-              src="/images/destinations/switzerland.png"
-              alt="Stay preview"
-              width={94}
-              height={94}
-            />
-            <div>
-              <strong>The Fern Hill Cottage</strong>
-              <p>Near Mall Road • Moderate</p>
-              <small>Peaceful place with great valley views.</small>
-            </div>
-          </div>
-          <button type="button" className="add-inline">
-            <Plus aria-hidden="true" size={17} />
-            Add another stay
-          </button>
-        </section>
-        <section className="create-chip-section">
-          <h2>Stay type</h2>
-          <div>
-            {["Hotel", "Homestay", "Hostel", "Resort", "Camping"].map(
-              (item) => (
-                <button
-                  key={item}
-                  type="button"
-                  className={item === "Hotel" ? "selected" : undefined}
-                >
-                  <BedDouble aria-hidden="true" size={17} />
-                  {item}
-                </button>
-              )
-            )}
-          </div>
-        </section>
-        <section>
-          <h2>Privacy control</h2>
-          {["Share exact stay names", "Share only area & type"].map((item) => (
-            <label className="radio-row" key={item}>
-              <input
-                type="radio"
-                checked={stayPrivacy === item}
-                onChange={() => setStayPrivacy(item)}
-              />{" "}
-              <span>
-                {item}
-                <small>
-                  {item === "Share exact stay names"
-                    ? "Helps others find the same places."
-                    : "More privacy, still helpful."}
-                </small>
-              </span>
-            </label>
-          ))}
-        </section>
-      </aside>
-    </div>
+            ) : null}
+          </article>
+        ))}
+      </div>
+      <button className="add-itinerary-day" type="button" onClick={addDay}>
+        <Plus aria-hidden="true" size={17} />
+        Add another day
+      </button>
+    </section>
   );
 }
 
 function BudgetStep({
   budgetMode,
-  setBudgetMode
+  setBudgetMode,
+  budgetCurrency,
+  setBudgetCurrency,
+  budgetAmount,
+  setBudgetAmount,
+  budgetMin,
+  setBudgetMin,
+  budgetMax,
+  setBudgetMax,
+  budgetCategories,
+  setBudgetCategories
 }: {
   budgetMode: string;
   setBudgetMode: (value: string) => void;
+  budgetCurrency: string;
+  setBudgetCurrency: (value: string) => void;
+  budgetAmount: string;
+  setBudgetAmount: (value: string) => void;
+  budgetMin: string;
+  setBudgetMin: (value: string) => void;
+  budgetMax: string;
+  setBudgetMax: (value: string) => void;
+  budgetCategories: Record<string, string>;
+  setBudgetCategories: (value: Record<string, string>) => void;
 }) {
+  const [currencyOpen, setCurrencyOpen] = useState(false);
+  const updateCategory = (row: string, value: string) => {
+    setBudgetCategories({ ...budgetCategories, [row]: value });
+  };
+
   return (
-    <div className="create-two-column budget-layout">
-      <section>
+    <section className="budget-form">
+      <div>
         <h2>Budget</h2>
         <p>
-          This is optional. A range is enough if exact numbers feel too much.
+          Add either an exact amount or a range. All budget values are per
+          person.
         </p>
-        <div className="segmented">
+      </div>
+      <div className="budget-top-row">
+        <div
+          className="segmented budget-mode-toggle"
+          aria-label="Budget entry type"
+        >
           <button
             type="button"
             className={budgetMode === "Exact amount" ? "selected" : undefined}
@@ -1127,61 +1375,121 @@ function BudgetStep({
             Budget range
           </button>
         </div>
-        <label>
-          Total amount
+        <div
+          className="budget-currency-field"
+          onBlur={(event) => {
+            const nextFocus =
+              event.relatedTarget instanceof Node ? event.relatedTarget : null;
+            if (!nextFocus || !event.currentTarget.contains(nextFocus)) {
+              setCurrencyOpen(false);
+            }
+          }}
+        >
+          <span>Currency *</span>
+          <button
+            type="button"
+            className="budget-currency-trigger"
+            aria-haspopup="listbox"
+            aria-expanded={currencyOpen}
+            onClick={() => setCurrencyOpen((open) => !open)}
+          >
+            {budgetCurrency}
+            <ChevronDown aria-hidden="true" size={18} />
+          </button>
+          {currencyOpen ? (
+            <div className="budget-currency-menu" role="listbox">
+              {["INR", "USD"].map((currency) => (
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={budgetCurrency === currency}
+                  className={budgetCurrency === currency ? "selected" : ""}
+                  key={currency}
+                  onClick={() => {
+                    setBudgetCurrency(currency);
+                    setCurrencyOpen(false);
+                  }}
+                >
+                  {currency}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      </div>
+      {budgetMode === "Exact amount" ? (
+        <label className="budget-field budget-total-field">
+          Total amount (per person) *
           <span>
-            <b>₹</b>
-            <input placeholder="e.g. 25000" />
-            <select>
-              <option>INR</option>
-              <option>USD</option>
-            </select>
+            <input
+              value={budgetAmount}
+              onChange={(event) =>
+                setBudgetAmount(numericOnly(event.target.value))
+              }
+              inputMode="numeric"
+              pattern="[0-9]*"
+              placeholder="e.g. 25000"
+              aria-required="true"
+            />
           </span>
         </label>
-        <label className="switch-row">
-          Per person
-          <input type="checkbox" defaultChecked />
-        </label>
-        <section className="budget-breakdown">
-          <h3>Category breakdown</h3>
+      ) : (
+        <div className="budget-range-fields">
+          <label className="budget-field">
+            Minimum budget (per person) *
+            <span>
+              <input
+                value={budgetMin}
+                onChange={(event) =>
+                  setBudgetMin(numericOnly(event.target.value))
+                }
+                inputMode="numeric"
+                pattern="[0-9]*"
+                placeholder="e.g. 20000"
+                aria-required="true"
+              />
+            </span>
+          </label>
+          <label className="budget-field">
+            Maximum budget (per person) *
+            <span>
+              <input
+                value={budgetMax}
+                onChange={(event) =>
+                  setBudgetMax(numericOnly(event.target.value))
+                }
+                inputMode="numeric"
+                pattern="[0-9]*"
+                placeholder="e.g. 30000"
+                aria-required="true"
+              />
+            </span>
+          </label>
+        </div>
+      )}
+      <section className="budget-breakdown">
+        <div>
+          <h3>Category breakdown (optional)</h3>
+          <p>Optional, but useful for travelers who want a quick cost split.</p>
+        </div>
+        <div>
           {budgetRows.map((row) => (
             <label key={row}>
               <span>{row}</span>
-              <input placeholder="₹  e.g. 5000" />
+              <input
+                value={budgetCategories[row] || ""}
+                onChange={(event) =>
+                  updateCategory(row, numericOnly(event.target.value))
+                }
+                inputMode="numeric"
+                pattern="[0-9]*"
+                placeholder="e.g. 5000"
+              />
             </label>
           ))}
-        </section>
+        </div>
       </section>
-      <aside>
-        <section className="budget-preview">
-          <h2>Budget summary preview</h2>
-          <strong>₹20k - ₹25k</strong>
-          <p>Per person</p>
-          <small>This is an estimated range.</small>
-        </section>
-        <section className="create-chip-section">
-          <h2>Helpful context</h2>
-          <div>
-            {["Budget-friendly", "Moderate", "Premium"].map((item) => (
-              <button type="button" key={item}>
-                <CircleDollarSign aria-hidden="true" size={17} />
-                {item}
-              </button>
-            ))}
-          </div>
-        </section>
-        <section>
-          <h2>Public visibility</h2>
-          <label className="radio-row">
-            <input type="radio" defaultChecked />{" "}
-            <span>Show exact numbers publicly</span>
-          </label>
-          <label className="radio-row">
-            <input type="radio" /> <span>Show only budget range</span>
-          </label>
-        </section>
-      </aside>
-    </div>
+    </section>
   );
 }
 
@@ -1189,66 +1497,58 @@ function ReviewStep({
   title,
   destination,
   duration,
-  media,
   coverPhoto,
   highlights,
-  completedSections,
-  visibility,
-  setVisibility,
-  basicsComplete
+  basicsComplete,
+  aboutComplete,
+  budgetComplete
 }: {
   title: string;
   destination: string;
   duration: string;
-  media: MediaItem[];
   coverPhoto?: MediaItem;
   highlights: string[];
-  completedSections: number;
-  visibility: string;
-  setVisibility: (value: string) => void;
   basicsComplete: boolean;
+  aboutComplete: boolean;
+  budgetComplete: boolean;
 }) {
   return (
-    <div className="create-two-column review-layout">
-      <section>
+    <section className="review-layout review-only">
+      <div>
         <h2>Review your trip</h2>
         <p>
-          Check the essentials, preview what others will see, and publish when
-          ready.
+          Check the essentials before publishing. Published trips are visible to
+          everyone.
         </p>
-        <article className="trip-preview-card">
-          <MediaPreview
-            item={coverPhoto}
-            fallback="/images/cta/share-adventure.png"
-            alt="Trip preview"
-            sizes="700px"
-          />
+      </div>
+      <article className="trip-preview-card">
+        <MediaPreview
+          item={coverPhoto}
+          fallback="/images/cta/share-adventure.png"
+          alt="Trip preview"
+          sizes="700px"
+        />
+        <div>
+          <h3>{title || "Untitled trip"}</h3>
+          <p>
+            {destination || "Destination missing"} •{" "}
+            {duration || "Dates missing"}
+          </p>
           <div>
-            <span>
-              {media[1] ? (
-                <MediaPreview
-                  item={media[1]}
-                  fallback="/images/cta/share-adventure.png"
-                  alt="Small preview"
-                  sizes="82px"
-                />
-              ) : null}
-            </span>
-            <h3>{title || "Untitled trip"}</h3>
-            <p>
-              {destination || "Destination missing"} •{" "}
-              {duration || "Dates missing"}
-            </p>
-            <div>
-              {highlights.slice(0, 4).map((item) => (
-                <small key={item}>{item}</small>
-              ))}
-            </div>
+            {highlights.slice(0, 4).map((item) => (
+              <small key={item}>{item}</small>
+            ))}
           </div>
-        </article>
-        <div className="review-checklist">
-          {steps.slice(0, 5).map((step) => {
-            const isMissing = step.id === "basics" && !basicsComplete;
+        </div>
+      </article>
+      <div className="review-checklist">
+        {steps
+          .filter((step) => step.id !== "review")
+          .map((step) => {
+            const isMissing =
+              (step.id === "basics" && !basicsComplete) ||
+              (step.id === "about" && !aboutComplete) ||
+              (step.id === "budget" && !budgetComplete);
             const Icon = step.icon;
             return (
               <p className={isMissing ? "missing" : undefined} key={step.id}>
@@ -1263,85 +1563,7 @@ function ReviewStep({
               </p>
             );
           })}
-        </div>
-        <section>
-          <h2>Visibility & sharing</h2>
-          {["Public trip", "Unlisted link"].map((item) => (
-            <label className="radio-row" key={item}>
-              <input
-                type="radio"
-                checked={visibility === item}
-                onChange={() => setVisibility(item)}
-              />{" "}
-              <span>
-                {item}
-                <small>
-                  {item === "Public trip"
-                    ? "Anyone can discover and view your trip."
-                    : "Only people with the link can view."}
-                </small>
-              </span>
-            </label>
-          ))}
-        </section>
-      </section>
-      <aside>
-        <section
-          className={
-            basicsComplete ? "publish-summary" : "publish-summary missing"
-          }
-        >
-          <h2>Publish summary</h2>
-          <div>
-            {basicsComplete ? (
-              <Check aria-hidden="true" size={22} />
-            ) : (
-              <X aria-hidden="true" size={22} />
-            )}
-            <strong>
-              {basicsComplete
-                ? Math.min(100, 72 + completedSections * 6) + "% complete"
-                : "Basics required"}
-            </strong>
-            <p>
-              {basicsComplete
-                ? "All essential sections are ready."
-                : "Complete Basics before publishing."}
-            </p>
-            <i />
-          </div>
-          <p>
-            <CalendarDays aria-hidden="true" size={18} />
-            Estimated read time <strong>6-8 min</strong>
-          </p>
-        </section>
-        <section>
-          <h2>What will be shown publicly</h2>
-          {[
-            "Cover photo & trip title",
-            "Photo and video gallery",
-            "Itinerary",
-            "Budget",
-            "Stays & transport"
-          ].map((item) => (
-            <p className="public-row" key={item}>
-              <ShieldCheck aria-hidden="true" size={18} />
-              {item}
-            </p>
-          ))}
-        </section>
-        <section
-          className={basicsComplete ? "ready-card" : "ready-card missing"}
-        >
-          <Star aria-hidden="true" size={22} />
-          <strong>{basicsComplete ? "Great job!" : "Basics needed"}</strong>
-          <p>
-            {basicsComplete
-              ? "Your trip is ready to inspire other travelers."
-              : "Complete title, destination, dates, cover photo and group before publishing."}
-          </p>
-        </section>
-      </aside>
-    </div>
+      </div>
+    </section>
   );
 }

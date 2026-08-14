@@ -6,12 +6,15 @@ export const testimonials: Testimonial[] = [
       "AfterTrip helped me plan the perfect Iceland trip. The real experiences shared here are gold!",
     name: "Jessica Lee",
     location: "New York, USA",
+    rating: 5,
     avatar: { initials: "JL", tone: "coral" }
   },
   {
-    quote: "I love how easy it is to share my trips. It feels amazing to inspire others.",
+    quote:
+      "I love how easy it is to share my trips. It feels amazing to inspire others.",
     name: "Michael Tan",
     location: "Singapore",
+    rating: 5,
     avatar: { initials: "MT", tone: "sand" }
   },
   {
@@ -19,6 +22,7 @@ export const testimonials: Testimonial[] = [
       "The best travel platform for real travelers. No ads, no noise. Just pure experiences.",
     name: "Priya Sharma",
     location: "Bangalore, India",
+    rating: 5,
     avatar: { initials: "PS", tone: "teal" }
   }
 ];

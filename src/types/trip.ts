@@ -5,6 +5,8 @@ export type Trip = {
   duration: string;
   author: string;
   rating: string;
+  views?: string;
+  likes?: string;
   image: {
     src: string;
     alt: string;

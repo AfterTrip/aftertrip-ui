@@ -7,39 +7,36 @@ import {
   Bookmark,
   Briefcase,
   ChevronDown,
+  Eye,
+  Heart,
   Home,
   Map,
   Menu,
-  Pencil,
   Plus,
   Search,
   User
 } from "lucide-react";
-import { useState } from "react";
+import { exploreTrips } from "@/data/explore-trips";
+
+const profilePhoto = "/images/hero/mountain-lake-traveler.png";
 
 const sidebarItems = [
   { label: "My Trips", href: "/dashboard", icon: Home },
   { label: "Travel Footprint", href: "/dashboard/travel-footprint", icon: Map },
-  { label: "Bookmarks", href: "/dashboard/bookmarks", icon: Bookmark },
   {
-    label: "Edit Profile",
-    href: "/dashboard/edit-profile",
-    icon: User,
+    label: "Bookmarks",
+    href: "/dashboard/bookmarks",
+    icon: Bookmark,
     active: true
-  }
+  },
+  { label: "Edit Profile", href: "/dashboard/edit-profile", icon: User }
 ];
 
-const profilePhoto = "/images/hero/mountain-lake-traveler.png";
+const bookmarkedTrips = exploreTrips.slice(0, 6);
 
-export function EditProfilePage() {
-  const [name, setName] = useState("Sreehari P");
-  const [location, setLocation] = useState("Kochi, Kerala, India");
-  const [tagline, setTagline] = useState(
-    "Exploring the world, one journey at a time."
-  );
-
+export function BookmarksPage() {
   return (
-    <main id="main-content" className="dashboard-page dashboard-edit-page">
+    <main id="main-content" className="dashboard-page">
       <header className="dashboard-topbar" aria-label="Dashboard header">
         <Link className="dashboard-brand" href="/" aria-label="AfterTrip home">
           <Image
@@ -125,55 +122,58 @@ export function EditProfilePage() {
         </aside>
 
         <section
-          className="dashboard-content profile-edit-content"
-          aria-labelledby="profile-edit-title"
+          className="dashboard-content bookmarks-content"
+          aria-labelledby="bookmarks-title"
         >
-          <form className="profile-edit-card" aria-label="Edit profile form">
-            <div className="profile-edit-preview" aria-hidden="true">
-              <span style={{ backgroundImage: "url(" + profilePhoto + ")" }} />
-              <div>
-                <strong>{name || "Traveler"}</strong>
-                {location ? <small>{location}</small> : null}
-                {tagline ? <p>{tagline}</p> : null}
-              </div>
-            </div>
-            <label>
-              <span>Name</span>
-              <input
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                placeholder="Enter your name"
-              />
-            </label>
-            <label>
-              <span>
-                Location <em>(optional)</em>
-              </span>
-              <input
-                value={location}
-                onChange={(event) => setLocation(event.target.value)}
-                placeholder="e.g. Kochi, Kerala, India"
-              />
-            </label>
-            <label>
-              <span>
-                Tagline <em>(optional)</em>
-              </span>
-              <input
-                value={tagline}
-                onChange={(event) => setTagline(event.target.value)}
-                placeholder="A short line about how you travel"
-                maxLength={90}
-              />
-            </label>
-            <div className="profile-edit-actions">
-              <Link href="/dashboard">Cancel</Link>
-              <button type="button">
-                <Pencil aria-hidden="true" size={18} />
-                Save changes
-              </button>
-            </div>
-          </form>
+          <div className="bookmarks-heading">
+            <p>Saved trips</p>
+            <h1 id="bookmarks-title">Bookmarks</h1>
+            <span>
+              Trips from other travelers that you want to revisit later.
+            </span>
+          </div>
+
+          <div className="dashboard-trip-grid" aria-label="Bookmarked trips">
+            {bookmarkedTrips.map((trip) => (
+              <Link
+                className="dashboard-trip-card dashboard-bookmark-card"
+                href={`/trips/${trip.slug}`}
+                key={trip.slug}
+              >
+                <span className="dashboard-trip-image">
+                  <Image
+                    src={trip.image.src}
+                    alt={trip.image.alt}
+                    fill
+                    sizes="(max-width: 767px) 116px, (max-width: 1199px) 50vw, 360px"
+                  />
+                  <span>Bookmarked</span>
+                  <span className="dashboard-bookmark-icon" aria-hidden="true">
+                    <Bookmark size={18} />
+                  </span>
+                </span>
+                <span className="dashboard-trip-body">
+                  <span className="dashboard-trip-title-row">
+                    <h2>{trip.title}</h2>
+                  </span>
+                  <p>
+                    {trip.place} • {trip.duration} • {trip.group}
+                  </p>
+                  <p className="dashboard-location">{trip.country}</p>
+                  <span className="dashboard-trip-meta">
+                    <span>
+                      <Eye aria-hidden="true" size={16} />
+                      {trip.views} views
+                    </span>
+                    <span>
+                      <Heart aria-hidden="true" size={16} />
+                      {trip.likes} likes
+                    </span>
+                  </span>
+                </span>
+              </Link>
+            ))}
+          </div>
         </section>
       </div>
 
@@ -185,7 +185,7 @@ export function EditProfilePage() {
           <Search aria-hidden="true" size={22} />
           Explore
         </Link>
-        <Link href="/dashboard/bookmarks">
+        <Link className="active" href="/dashboard/bookmarks">
           <Bookmark aria-hidden="true" size={22} />
           Bookmarks
         </Link>
@@ -197,7 +197,7 @@ export function EditProfilePage() {
           <Briefcase aria-hidden="true" size={22} />
           My Trips
         </Link>
-        <Link className="active" href="/dashboard/edit-profile">
+        <Link href="/dashboard/edit-profile">
           <User aria-hidden="true" size={22} />
           Profile
         </Link>

@@ -2,12 +2,12 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { type CSSProperties, useMemo, useState } from "react";
 import {
   ArrowRight,
-  CalendarDays,
   ChevronDown,
   Compass,
+  Eye,
   Grid2X2,
   Heart,
   List,
@@ -15,11 +15,7 @@ import {
   RotateCcw,
   Search,
   SlidersHorizontal,
-  Sparkles,
-  Star,
-  Sun,
-  Tags,
-  WalletCards
+  X
 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -27,96 +23,68 @@ import { IconButton } from "@/components/ui/icon-button";
 import {
   exploreCategories,
   exploreTrips,
-  type ExploreTrip
+  type ExploreTrip,
+  type TripGroup,
+  type TripStyle
 } from "@/data/explore-trips";
-
-const quickFilters = [
-  { label: "Anytime", icon: CalendarDays },
-  { label: "Budget", icon: WalletCards },
-  { label: "Trip type", icon: Tags },
-  { label: "Season", icon: Sun },
-  { label: "Hidden gems", icon: Sparkles }
-] as const;
 
 const durationOptions = [
   "Any",
   "1-3 days",
   "4-7 days",
-  "1-2 weeks",
-  "2+ weeks"
+  "8-14 days",
+  "15+ days"
 ];
-const tripTypes = [
-  "All Types",
+const tripGroups: Array<"Any" | TripGroup> = [
+  "Any",
   "Solo",
-  "Couples",
+  "Friends",
+  "Couple",
   "Family",
   "Group",
-  "Backpacking",
-  "Road Trip",
-  "Luxury"
+  "Other"
 ];
-const styles = [
-  "Adventure",
-  "Relaxation",
-  "Culture",
+
+const styles: TripStyle[] = [
+  "Road trip",
+  "Trekking",
+  "Beach",
+  "City",
   "Nature",
-  "Food & Drink",
-  "Photography",
-  "Off the Beaten Path",
-  "City Break"
+  "Adventure",
+  "Relaxed",
+  "Budget",
+  "Luxury",
+  "Food",
+  "Culture",
+  "Mountains",
+  "Wildlife",
+  "Camping",
+  "Spiritual",
+  "Nightlife",
+  "Winter Escape"
 ];
 
-const categoryCountries: Record<string, string[]> = {
-  "All Trips": [],
-  Mountains: ["Switzerland", "New Zealand"],
-  Beaches: ["Indonesia", "Thailand"],
-  "Road Trips": ["Italy", "New Zealand"],
-  Winter: ["Iceland"],
-  Backpacking: ["Thailand", "Indonesia"]
-};
+const budgetCurrencies = {
+  INR: {
+    label: "INR",
+    symbol: "₹",
+    min: 1000,
+    max: 500000,
+    step: 1000,
+    toUsd: (value: number) => value / 80
+  },
+  USD: {
+    label: "USD",
+    symbol: "$",
+    min: 15,
+    max: 6250,
+    step: 25,
+    toUsd: (value: number) => value
+  }
+} as const;
 
-const tripTypeRules: Record<string, (trip: ExploreTrip) => boolean> = {
-  "All Types": () => true,
-  Solo: (trip) => ["Iceland", "Japan", "New Zealand"].includes(trip.country),
-  Couples: (trip) =>
-    ["Indonesia", "Italy", "Switzerland"].includes(trip.country),
-  Family: (trip) => ["Switzerland", "Japan", "Thailand"].includes(trip.country),
-  Group: (trip) => ["Thailand", "Indonesia", "Italy"].includes(trip.country),
-  Backpacking: (trip) =>
-    ["Thailand", "Indonesia", "New Zealand"].includes(trip.country),
-  "Road Trip": (trip) =>
-    trip.title.includes("Road") ||
-    trip.country === "Italy" ||
-    trip.country === "New Zealand",
-  Luxury: (trip) => tripPrice(trip) >= 1000
-};
-
-const styleRules: Record<string, (trip: ExploreTrip) => boolean> = {
-  Adventure: (trip) =>
-    ["Iceland", "New Zealand", "Switzerland", "Thailand"].includes(
-      trip.country
-    ),
-  Relaxation: (trip) =>
-    ["Indonesia", "Thailand", "Italy"].includes(trip.country),
-  Culture: (trip) => ["Japan", "Indonesia", "Italy"].includes(trip.country),
-  Nature: (trip) =>
-    ["Switzerland", "Iceland", "New Zealand", "Thailand"].includes(
-      trip.country
-    ),
-  "Food & Drink": (trip) =>
-    trip.country === "Italy" ||
-    trip.country === "Japan" ||
-    trip.country === "Indonesia",
-  Photography: (trip) => Number(trip.rating) >= 4.8,
-  "Off the Beaten Path": (trip) =>
-    trip.title.includes("Offbeat") ||
-    trip.title.includes("Hidden") ||
-    trip.title.includes("Raw"),
-  "City Break": (trip) =>
-    trip.budgetLabel.toLowerCase().includes("city") ||
-    trip.country === "Italy" ||
-    trip.country === "Japan"
-};
+type BudgetCurrency = keyof typeof budgetCurrencies;
 
 function tripDays(trip: ExploreTrip) {
   return Number(trip.duration.replace(/[^0-9]/g, ""));
@@ -126,18 +94,12 @@ function matchesDuration(trip: ExploreTrip, duration: string) {
   const days = tripDays(trip);
   if (duration === "1-3 days") return days <= 3;
   if (duration === "4-7 days") return days >= 4 && days <= 7;
-  if (duration === "1-2 weeks") return days >= 7 && days <= 14;
-  if (duration === "2+ weeks") return days >= 14;
+  if (duration === "8-14 days") return days >= 8 && days <= 14;
+  if (duration === "15+ days") return days >= 15;
   return true;
 }
 
-function tripPrice(trip: ExploreTrip) {
-  return Number(trip.price.replace(/[^0-9]/g, ""));
-}
-
 function ExploreTripCard({ trip }: { trip: ExploreTrip }) {
-  const [saved, setSaved] = useState(false);
-
   return (
     <article className="explore-trip-card">
       <Link
@@ -155,43 +117,42 @@ function ExploreTripCard({ trip }: { trip: ExploreTrip }) {
         <div className="explore-card-overlay" />
         <span className="explore-duration">{trip.duration}</span>
       </Link>
-      <button
-        className={saved ? "favorite-trip is-saved" : "favorite-trip"}
-        type="button"
-        aria-label={(saved ? "Remove " : "Save ") + trip.title}
-        aria-pressed={saved}
-        onClick={() => setSaved((value) => !value)}
-      >
-        <Heart
-          aria-hidden="true"
-          fill={saved ? "currentColor" : "none"}
-          size={24}
-        />
-      </button>
-      <Link className="explore-card-content" href={`/trips/${trip.slug}`}>
-        <h2>{trip.title}</h2>
+      <div className="explore-card-content">
+        <h2>
+          <Link href={`/trips/${trip.slug}`}>{trip.title}</Link>
+        </h2>
         <p className="trip-place">{trip.place}</p>
+        <div className="explore-card-styles">
+          {trip.styles.slice(0, 2).map((style) => (
+            <span key={style}>{style}</span>
+          ))}
+        </div>
         <div className="explore-card-meta">
-          <span>
+          <Link
+            className="explore-author-link"
+            href={`/travelers/${trip.authorSlug}`}
+          >
             <Avatar
               initials={trip.initials}
               tone={trip.avatarTone}
               label={trip.author + " avatar"}
             />
             By {trip.author}
-          </span>
-          <span className="explore-rating">
-            <Star aria-hidden="true" fill="currentColor" size={16} />
-            {trip.rating}
+          </Link>
+          <span className="explore-card-engagement">
+            <Eye aria-hidden="true" size={15} />
+            {trip.views}
+            <Heart aria-hidden="true" size={15} />
+            {trip.likes}
           </span>
           <strong>{trip.price}</strong>
         </div>
         <div className="mobile-budget-row">
-          <span>$$$</span>
+          <span>{trip.group}</span>
           <i />
           {trip.budgetLabel}
         </div>
-      </Link>
+      </div>
     </article>
   );
 }
@@ -203,108 +164,138 @@ export function ExploreClient({
 }) {
   const [query, setQuery] = useState(initialQuery);
   const [activeCategory, setActiveCategory] = useState("All Trips");
-  const [activeQuickFilter, setActiveQuickFilter] = useState("Anytime");
   const [duration, setDuration] = useState("Any");
-  const [tripType, setTripType] = useState("All Types");
-  const [travelStyle, setTravelStyle] = useState("");
-  const [budget, setBudget] = useState(5000);
-  const [rating, setRating] = useState(4);
-  const [hiddenGems, setHiddenGems] = useState(true);
-  const [budgetFriendly, setBudgetFriendly] = useState(false);
-  const [familyFriendly, setFamilyFriendly] = useState(false);
+  const [selectedGroups, setSelectedGroups] = useState<TripGroup[]>([]);
+  const [selectedStyles, setSelectedStyles] = useState<TripStyle[]>([]);
+  const [budgetCurrency, setBudgetCurrency] = useState<BudgetCurrency>("INR");
+  const [budget, setBudget] = useState<number>(budgetCurrencies.INR.max);
   const [sortBy, setSortBy] = useState("Newest");
   const [viewMode, setViewMode] = useState<"grid" | "list" | "map">("grid");
   const [visibleCount, setVisibleCount] = useState(6);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+
+  const budgetConfig = budgetCurrencies[budgetCurrency];
+  const budgetLimitUsd = budgetConfig.toUsd(budget);
+  const budgetProgress =
+    ((budget - budgetConfig.min) / (budgetConfig.max - budgetConfig.min)) * 100;
+  const budgetRangeStyle = {
+    "--range-progress": `${Math.max(0, Math.min(100, budgetProgress))}%`
+  } as CSSProperties;
+
+  const formatBudget = (value: number, currency = budgetCurrency) =>
+    new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency,
+      maximumFractionDigits: 0
+    }).format(value);
+
+  const switchBudgetCurrency = (nextCurrency: BudgetCurrency) => {
+    if (nextCurrency === budgetCurrency) return;
+    const currentUsd = budgetCurrencies[budgetCurrency].toUsd(budget);
+    const nextConfig = budgetCurrencies[nextCurrency];
+    const converted =
+      nextCurrency === "INR"
+        ? Math.round(currentUsd * 80)
+        : Math.round(currentUsd);
+    setBudgetCurrency(nextCurrency);
+    setBudget(Math.max(nextConfig.min, Math.min(nextConfig.max, converted)));
+    setVisibleCount(6);
+  };
 
   const resetFilters = () => {
     setQuery("");
     setActiveCategory("All Trips");
-    setActiveQuickFilter("Anytime");
     setDuration("Any");
-    setTripType("All Types");
-    setTravelStyle("");
-    setBudget(5000);
-    setRating(4);
-    setHiddenGems(true);
-    setBudgetFriendly(false);
-    setFamilyFriendly(false);
+    setSelectedGroups([]);
+    setSelectedStyles([]);
+    setBudgetCurrency("INR");
+    setBudget(budgetCurrencies.INR.max);
     setSortBy("Newest");
     setVisibleCount(6);
   };
 
   const filteredTrips = useMemo(() => {
-    const allowedCountries = categoryCountries[activeCategory] ?? [];
+    const activeCategoryConfig = exploreCategories.find(
+      (category) => category.label === activeCategory
+    );
     const normalizedQuery = query.trim().toLowerCase();
     const results = exploreTrips.filter((trip) => {
       const matchesQuery =
         !normalizedQuery ||
-        [trip.title, trip.country, trip.place, trip.author].some((value) =>
-          value.toLowerCase().includes(normalizedQuery)
-        );
+        [
+          trip.title,
+          trip.country,
+          trip.place,
+          trip.author,
+          trip.group,
+          ...trip.styles
+        ].some((value) => value.toLowerCase().includes(normalizedQuery));
       const matchesCategory =
-        allowedCountries.length === 0 ||
-        allowedCountries.includes(trip.country);
-      const matchesBudget = tripPrice(trip) <= budget;
-      const matchesRating = Number(trip.rating) >= rating;
+        !activeCategoryConfig?.style ||
+        trip.styles.includes(activeCategoryConfig.style);
+      const matchesBudget = trip.budgetAmount <= budgetLimitUsd;
       const matchesDurationFilter = matchesDuration(trip, duration);
-      const matchesTripType = (
-        tripTypeRules[tripType] ?? tripTypeRules["All Types"]
-      )(trip);
+      const matchesTripGroup =
+        selectedGroups.length === 0 || selectedGroups.includes(trip.group);
       const matchesStyle =
-        !travelStyle || (styleRules[travelStyle] ?? (() => true))(trip);
-      const matchesBudgetFriendly = !budgetFriendly || tripPrice(trip) <= 700;
-      const matchesFamilyFriendly = !familyFriendly || tripDays(trip) <= 7;
+        selectedStyles.length === 0 ||
+        selectedStyles.some((style) => trip.styles.includes(style));
       return (
         matchesQuery &&
         matchesCategory &&
         matchesBudget &&
-        matchesRating &&
         matchesDurationFilter &&
-        matchesTripType &&
-        matchesStyle &&
-        matchesBudgetFriendly &&
-        matchesFamilyFriendly
+        matchesTripGroup &&
+        matchesStyle
       );
     });
 
     return [...results].sort((a, b) => {
-      if (sortBy === "Top rated") return Number(b.rating) - Number(a.rating);
-      if (sortBy === "Budget low") return tripPrice(a) - tripPrice(b);
+      if (sortBy === "Shortest") return tripDays(a) - tripDays(b);
       return exploreTrips.indexOf(a) - exploreTrips.indexOf(b);
     });
   }, [
     activeCategory,
-    budget,
-    budgetFriendly,
+    budgetLimitUsd,
     duration,
-    familyFriendly,
     query,
-    rating,
-    sortBy,
-    travelStyle,
-    tripType
+    selectedGroups,
+    selectedStyles,
+    sortBy
   ]);
 
   const visibleTrips = filteredTrips.slice(0, visibleCount);
   const mobileFilterCount = [
     duration !== "Any",
-    budget < 5000,
-    rating > 4,
-    tripType !== "All Types",
-    Boolean(travelStyle),
-    budgetFriendly,
-    familyFriendly
+    budget < budgetConfig.max,
+    selectedGroups.length > 0,
+    selectedStyles.length > 0
   ].filter(Boolean).length;
-  const budgetText = "$200 - $" + budget.toLocaleString();
-  const appliedSummary =
-    activeQuickFilter +
-    " • " +
-    duration +
-    " • up to $" +
-    budget.toLocaleString() +
-    " • " +
-    rating.toFixed(1) +
-    "+ rating";
+  const budgetText = `${formatBudget(budgetConfig.min)} - ${formatBudget(budget)}`;
+  const appliedSummary = [
+    duration,
+    "up to " + formatBudget(budget),
+    selectedGroups.length ? selectedGroups.join(", ") : "Any type",
+    selectedStyles.length ? selectedStyles.join(", ") : "Any vibe"
+  ].join(" • ");
+
+  const toggleGroup = (group: TripGroup) => {
+    setSelectedGroups((current) =>
+      current.includes(group)
+        ? current.filter((item) => item !== group)
+        : [...current, group]
+    );
+    setVisibleCount(6);
+  };
+
+  const toggleStyle = (style: TripStyle) => {
+    setSelectedStyles((current) =>
+      current.includes(style)
+        ? current.filter((item) => item !== style)
+        : [...current, style]
+    );
+    setVisibleCount(6);
+  };
 
   return (
     <main id="main-content" className="explore-page">
@@ -344,24 +335,6 @@ export function ExploreClient({
                 placeholder="Where do you want to go?"
               />
             </label>
-            {quickFilters.slice(0, 3).map(({ label, icon: Icon }) => (
-              <button
-                className={
-                  activeQuickFilter === label ? "is-active" : undefined
-                }
-                type="button"
-                aria-pressed={activeQuickFilter === label}
-                onClick={() => setActiveQuickFilter(label)}
-                key={label}
-              >
-                <Icon aria-hidden="true" size={17} />
-                {label === "Budget"
-                  ? "Any budget"
-                  : label === "Trip type"
-                    ? "Any trip type"
-                    : label}
-              </button>
-            ))}
             <Button type="submit">Explore</Button>
           </form>
         </div>
@@ -406,32 +379,15 @@ export function ExploreClient({
               />
             </label>
           </form>
-          <div className="mobile-filter-chips" aria-label="Quick filters">
-            {quickFilters.map(({ label, icon: Icon }) => (
-              <button
-                className={activeQuickFilter === label ? "active" : undefined}
-                type="button"
-                aria-pressed={activeQuickFilter === label}
-                onClick={() => setActiveQuickFilter(label)}
-                key={label}
-              >
-                <Icon aria-hidden="true" size={22} />
-                {label}
-              </button>
-            ))}
-          </div>
           <div className="mobile-sort-bar">
             <button
               type="button"
               onClick={() => {
-                setSortBy(
-                  sortBy === "Recommended" ? "Top rated" : "Recommended"
-                );
+                setSortBy(sortBy === "Newest" ? "Shortest" : "Newest");
                 setVisibleCount(6);
               }}
             >
-              <strong>Sort by:</strong>{" "}
-              {sortBy === "Newest" ? "Recommended" : sortBy}{" "}
+              <strong>Sort by:</strong> {sortBy}{" "}
               <ChevronDown aria-hidden="true" size={16} />
             </button>
             <button
@@ -449,11 +405,8 @@ export function ExploreClient({
               className={mobileFilterCount > 0 ? "active" : undefined}
               type="button"
               aria-pressed={mobileFilterCount > 0}
-              onClick={() =>
-                setActiveQuickFilter((filter) =>
-                  filter === "Budget" ? "Anytime" : "Budget"
-                )
-              }
+              aria-controls="mobile-filter-drawer"
+              onClick={() => setMobileFiltersOpen(true)}
             >
               <SlidersHorizontal aria-hidden="true" size={24} />
               Filters
@@ -484,19 +437,40 @@ export function ExploreClient({
             </label>
           </div>
           <div className="filter-group">
-            <h2>Budget per person</h2>
+            <div className="filter-heading-row">
+              <h2>Budget per person</h2>
+              <div
+                className="budget-currency-toggle"
+                aria-label="Budget currency"
+              >
+                {(["INR", "USD"] as BudgetCurrency[]).map((currency) => (
+                  <button
+                    className={
+                      budgetCurrency === currency ? "active" : undefined
+                    }
+                    type="button"
+                    aria-pressed={budgetCurrency === currency}
+                    onClick={() => switchBudgetCurrency(currency)}
+                    key={currency}
+                  >
+                    {currency}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="range-labels">
-              <span>$200</span>
-              <span>$5,000+</span>
+              <span>{formatBudget(budgetConfig.min)}</span>
+              <span>{formatBudget(budgetConfig.max)}+</span>
             </div>
             <label className="range-control">
               <span className="sr-only">Maximum budget per person</span>
               <input
                 type="range"
-                min="200"
-                max="5000"
-                step="100"
+                min={budgetConfig.min}
+                max={budgetConfig.max}
+                step={budgetConfig.step}
                 value={budget}
+                style={budgetRangeStyle}
                 onChange={(event) => {
                   setBudget(Number(event.target.value));
                   setVisibleCount(6);
@@ -525,16 +499,24 @@ export function ExploreClient({
             </div>
           </div>
           <div className="filter-group">
-            <h2>Trip Type</h2>
+            <h2>Trip type</h2>
             <div className="checkbox-grid">
-              {tripTypes.map((item) => (
+              {tripGroups.map((item) => (
                 <label key={item}>
                   <input
                     type="checkbox"
-                    checked={tripType === item}
+                    checked={
+                      item === "Any"
+                        ? selectedGroups.length === 0
+                        : selectedGroups.includes(item)
+                    }
                     onChange={() => {
-                      setTripType(item);
-                      setVisibleCount(6);
+                      if (item === "Any") {
+                        setSelectedGroups([]);
+                        setVisibleCount(6);
+                      } else {
+                        toggleGroup(item);
+                      }
                     }}
                   />
                   <span>{item}</span>
@@ -543,106 +525,32 @@ export function ExploreClient({
             </div>
           </div>
           <div className="filter-group">
-            <h2>Best Time to Go</h2>
-            <select
-              value={activeQuickFilter === "Season" ? "Summer" : "Anytime"}
-              onChange={(event) =>
-                setActiveQuickFilter(
-                  event.target.value === "Anytime" ? "Anytime" : "Season"
-                )
-              }
-              aria-label="Best time to go"
-            >
-              <option>Anytime</option>
-              <option>Spring</option>
-              <option>Summer</option>
-              <option>Autumn</option>
-              <option>Winter</option>
-            </select>
-          </div>
-          <div className="filter-group">
-            <h2>Travel Style</h2>
+            <h2>Trip vibe</h2>
             <div className="style-tags">
+              <button
+                className={selectedStyles.length === 0 ? "active" : undefined}
+                type="button"
+                aria-pressed={selectedStyles.length === 0}
+                onClick={() => {
+                  setSelectedStyles([]);
+                  setVisibleCount(6);
+                }}
+              >
+                Any
+              </button>
               {styles.map((item) => (
                 <button
-                  className={travelStyle === item ? "active" : undefined}
+                  className={
+                    selectedStyles.includes(item) ? "active" : undefined
+                  }
                   type="button"
-                  aria-pressed={travelStyle === item}
-                  onClick={() => {
-                    setTravelStyle((current) => (current === item ? "" : item));
-                    setVisibleCount(6);
-                  }}
+                  aria-pressed={selectedStyles.includes(item)}
+                  onClick={() => toggleStyle(item)}
                   key={item}
                 >
                   {item}
                 </button>
               ))}
-            </div>
-          </div>
-          <div className="filter-group">
-            <h2>Minimum Rating</h2>
-            <div className="range-labels">
-              <span>Any rating</span>
-              <span>5.0</span>
-            </div>
-            <label className="range-control">
-              <span className="sr-only">Minimum rating</span>
-              <input
-                type="range"
-                min="4"
-                max="5"
-                step="0.1"
-                value={rating}
-                onChange={(event) => {
-                  setRating(Number(event.target.value));
-                  setVisibleCount(6);
-                }}
-              />
-            </label>
-            <p className="range-value">{rating.toFixed(1)}+ & above</p>
-          </div>
-          <div className="filter-group">
-            <h2>More Filters</h2>
-            <div className="toggle-list">
-              <label>
-                <span>
-                  <strong>Hidden Gems</strong>
-                  <small>Show lesser-known places</small>
-                </span>
-                <input
-                  type="checkbox"
-                  checked={hiddenGems}
-                  onChange={(event) => setHiddenGems(event.target.checked)}
-                />
-              </label>
-              <label>
-                <span>
-                  <strong>Budget Friendly</strong>
-                  <small>Trips that won&apos;t break the bank</small>
-                </span>
-                <input
-                  type="checkbox"
-                  checked={budgetFriendly}
-                  onChange={(event) => {
-                    setBudgetFriendly(event.target.checked);
-                    setVisibleCount(6);
-                  }}
-                />
-              </label>
-              <label>
-                <span>
-                  <strong>Family Friendly</strong>
-                  <small>Great for all ages</small>
-                </span>
-                <input
-                  type="checkbox"
-                  checked={familyFriendly}
-                  onChange={(event) => {
-                    setFamilyFriendly(event.target.checked);
-                    setVisibleCount(6);
-                  }}
-                />
-              </label>
             </div>
           </div>
           <button
@@ -711,9 +619,7 @@ export function ExploreClient({
                   aria-label="Sort trips"
                 >
                   <option>Newest</option>
-                  <option>Recommended</option>
-                  <option>Top rated</option>
-                  <option>Budget low</option>
+                  <option>Shortest</option>
                 </select>
               </label>
               <IconButton
@@ -763,8 +669,8 @@ export function ExploreClient({
               ))
             ) : (
               <p className="empty-results">
-                No trips match these filters. Try widening your budget, rating,
-                or duration.
+                No trips match these filters. Try widening your budget, group,
+                style, or duration.
               </p>
             )}
           </div>
@@ -780,18 +686,188 @@ export function ExploreClient({
           ) : null}
         </div>
       </section>
-      <div className="mobile-applied-filters" role="status">
-        <span>
-          <SlidersHorizontal aria-hidden="true" size={26} />
-        </span>
-        <div>
-          <strong>Filters applied</strong>
-          <p>{appliedSummary}</p>
+      <div
+        className={
+          mobileFiltersOpen
+            ? "mobile-filter-overlay open"
+            : "mobile-filter-overlay"
+        }
+        aria-hidden={!mobileFiltersOpen}
+        hidden={!mobileFiltersOpen}
+        onClick={() => setMobileFiltersOpen(false)}
+      />
+      <aside
+        id="mobile-filter-drawer"
+        className={
+          mobileFiltersOpen
+            ? "mobile-filter-drawer open"
+            : "mobile-filter-drawer"
+        }
+        aria-label="Mobile trip filters"
+        role="dialog"
+        aria-modal="true"
+        hidden={!mobileFiltersOpen}
+      >
+        <div className="mobile-filter-header">
+          <div>
+            <strong>Filters</strong>
+            <span>{filteredTrips.length} trips match</span>
+          </div>
+          <button
+            type="button"
+            aria-label="Close filters"
+            onClick={() => setMobileFiltersOpen(false)}
+          >
+            <X aria-hidden="true" size={22} />
+          </button>
         </div>
-        <button type="button" onClick={resetFilters}>
-          Clear all
-        </button>
-      </div>
+        <div className="mobile-filter-body">
+          <div className="filter-group">
+            <h2>Budget per person</h2>
+            <div className="mobile-budget-head">
+              <p>{budgetText}</p>
+              <div
+                className="budget-currency-toggle"
+                aria-label="Budget currency"
+              >
+                {(["INR", "USD"] as BudgetCurrency[]).map((currency) => (
+                  <button
+                    className={
+                      budgetCurrency === currency ? "active" : undefined
+                    }
+                    type="button"
+                    aria-pressed={budgetCurrency === currency}
+                    onClick={() => switchBudgetCurrency(currency)}
+                    key={currency}
+                  >
+                    {currency}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="range-labels">
+              <span>{formatBudget(budgetConfig.min)}</span>
+              <span>{formatBudget(budgetConfig.max)}+</span>
+            </div>
+            <label className="range-control">
+              <span className="sr-only">Maximum budget per person</span>
+              <input
+                type="range"
+                min={budgetConfig.min}
+                max={budgetConfig.max}
+                step={budgetConfig.step}
+                value={budget}
+                style={budgetRangeStyle}
+                onChange={(event) => {
+                  setBudget(Number(event.target.value));
+                  setVisibleCount(6);
+                }}
+              />
+            </label>
+          </div>
+          <div className="filter-group">
+            <h2>Duration</h2>
+            <div className="segmented-options">
+              {durationOptions.map((item) => (
+                <button
+                  className={duration === item ? "active" : undefined}
+                  type="button"
+                  aria-pressed={duration === item}
+                  onClick={() => {
+                    setDuration(item);
+                    setVisibleCount(6);
+                  }}
+                  key={item}
+                >
+                  {item}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="filter-group">
+            <h2>Trip type</h2>
+            <div className="style-tags">
+              <button
+                className={selectedGroups.length === 0 ? "active" : undefined}
+                type="button"
+                aria-pressed={selectedGroups.length === 0}
+                onClick={() => {
+                  setSelectedGroups([]);
+                  setVisibleCount(6);
+                }}
+              >
+                Any
+              </button>
+              {tripGroups
+                .filter((group): group is TripGroup => group !== "Any")
+                .map((group) => (
+                  <button
+                    className={
+                      selectedGroups.includes(group) ? "active" : undefined
+                    }
+                    type="button"
+                    aria-pressed={selectedGroups.includes(group)}
+                    onClick={() => toggleGroup(group)}
+                    key={group}
+                  >
+                    {group}
+                  </button>
+                ))}
+            </div>
+          </div>
+          <div className="filter-group">
+            <h2>Trip style</h2>
+            <div className="style-tags">
+              <button
+                className={selectedStyles.length === 0 ? "active" : undefined}
+                type="button"
+                aria-pressed={selectedStyles.length === 0}
+                onClick={() => {
+                  setSelectedStyles([]);
+                  setVisibleCount(6);
+                }}
+              >
+                Any
+              </button>
+              {styles.map((item) => (
+                <button
+                  className={
+                    selectedStyles.includes(item) ? "active" : undefined
+                  }
+                  type="button"
+                  aria-pressed={selectedStyles.includes(item)}
+                  onClick={() => toggleStyle(item)}
+                  key={item}
+                >
+                  {item}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="mobile-filter-actions">
+          <button type="button" onClick={resetFilters}>
+            Clear all
+          </button>
+          <button type="button" onClick={() => setMobileFiltersOpen(false)}>
+            Apply filters
+          </button>
+        </div>
+      </aside>
+      {mobileFilterCount > 0 ? (
+        <div className="mobile-applied-filters" role="status">
+          <span>
+            <SlidersHorizontal aria-hidden="true" size={26} />
+          </span>
+          <div>
+            <strong>Filters applied</strong>
+            <p>{appliedSummary}</p>
+          </div>
+          <button type="button" onClick={resetFilters}>
+            Clear all
+          </button>
+        </div>
+      ) : null}
     </main>
   );
 }

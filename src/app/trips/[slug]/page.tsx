@@ -4,44 +4,21 @@ import { notFound } from "next/navigation";
 import {
   ArrowLeft,
   CalendarDays,
-  Car,
-  CheckCircle2,
   ChevronDown,
-  CloudSun,
-  Heart,
   ImageIcon,
   Info,
   MapPin,
   NotebookTabs,
-  Share2,
-  ShieldAlert,
   Sparkles,
-  Star,
   Users,
   WalletCards
 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
+import { TripActions } from "@/components/trip/trip-actions";
 import { TripGallery } from "@/components/trip/trip-gallery";
-import {
-  getAllTripSlugs,
-  getTripDetail,
-  type DetailNote
-} from "@/data/trip-details";
+import { getAllTripSlugs, getTripDetail } from "@/data/trip-details";
 
-const factIcons = [
-  MapPin,
-  CalendarDays,
-  Users,
-  CloudSun,
-  Sparkles,
-  CheckCircle2
-];
-
-const noteIcons: Record<DetailNote["tone"], typeof Sparkles> = {
-  green: Sparkles,
-  red: ShieldAlert,
-  blue: Car
-};
+const factIcons = [MapPin, CalendarDays, Users, Sparkles, WalletCards];
 
 type TripPageProps = {
   params: Promise<{ slug: string }>;
@@ -58,7 +35,9 @@ export default async function TripDetailPage({ params }: TripPageProps) {
   if (!trip) notFound();
 
   const hasGallery = Boolean(trip.gallery?.length);
-  const hasNotes = Boolean(trip.notes?.length);
+  const hasGoodToKnow = Boolean(trip.goodToKnow?.length);
+  const hasTravelerNotes = Boolean(trip.highlights?.length || hasGoodToKnow);
+  const authorSlug = trip.author.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 
   return (
     <main id="main-content" className="trip-detail-page">
@@ -82,7 +61,7 @@ export default async function TripDetailPage({ params }: TripPageProps) {
           <p>{trip.summary}</p>
           <div className="trip-badges" aria-label="Trip highlights">
             {trip.badges.map((badge, index) => {
-              const icons = [CalendarDays, Users, CalendarDays, WalletCards];
+              const icons = [CalendarDays, Users, Sparkles, WalletCards];
               const Icon = icons[index] ?? Info;
               return (
                 <span key={badge}>
@@ -92,16 +71,7 @@ export default async function TripDetailPage({ params }: TripPageProps) {
               );
             })}
           </div>
-          <div className="trip-hero-actions" aria-label="Trip actions">
-            <button type="button">
-              <Heart aria-hidden="true" size={22} />
-              Save
-            </button>
-            <button type="button">
-              <Share2 aria-hidden="true" size={22} />
-              Share
-            </button>
-          </div>
+          <TripActions title={trip.title} />
         </div>
       </section>
 
@@ -111,7 +81,10 @@ export default async function TripDetailPage({ params }: TripPageProps) {
       >
         <div className="trip-detail-main">
           <div className="trip-author-card">
-            <div className="trip-author-profile">
+            <Link
+              className="trip-author-profile"
+              href={`/travelers/${authorSlug}`}
+            >
               <Avatar
                 initials={trip.initials}
                 tone={trip.avatarTone}
@@ -119,28 +92,20 @@ export default async function TripDetailPage({ params }: TripPageProps) {
               />
               <div>
                 <strong>Trip by {trip.author}</strong>
-                <span>
-                  <Star aria-hidden="true" size={18} fill="currentColor" />
-                  {trip.rating}
-                </span>
+                <span>{trip.group} journey</span>
               </div>
-            </div>
+            </Link>
             <div className="trip-author-stats">
-              {trip.views ? (
-                <span>
-                  <strong>{trip.views}</strong>Views
-                </span>
-              ) : null}
-              {trip.saves ? (
-                <span>
-                  <strong>{trip.saves}</strong>Saves
-                </span>
-              ) : null}
-              {trip.recommendation ? (
-                <span>
-                  <strong>{trip.recommendation}</strong>Would recommend
-                </span>
-              ) : null}
+              <span>
+                <strong>{trip.duration}</strong>Duration
+              </span>
+              <span>
+                <strong>{trip.group}</strong>Group
+              </span>
+              <span>
+                <strong>{trip.spend?.amount ?? trip.styles[0]}</strong>
+                {trip.spend ? "Budget" : "Style"}
+              </span>
             </div>
           </div>
 
@@ -153,22 +118,16 @@ export default async function TripDetailPage({ params }: TripPageProps) {
               <CalendarDays aria-hidden="true" size={19} />
               Itinerary
             </a>
+            {hasTravelerNotes ? (
+              <a href="#tips">
+                <Sparkles aria-hidden="true" size={19} />
+                Highlights
+              </a>
+            ) : null}
             {hasGallery ? (
               <a href="#gallery">
                 <ImageIcon aria-hidden="true" size={19} />
                 Gallery
-              </a>
-            ) : null}
-            {hasNotes || trip.practicalTips?.length ? (
-              <a href="#tips">
-                <Sparkles aria-hidden="true" size={19} />
-                Tips
-              </a>
-            ) : null}
-            {trip.transport ? (
-              <a href="#transport">
-                <Car aria-hidden="true" size={19} />
-                Transport
               </a>
             ) : null}
           </nav>
@@ -212,12 +171,54 @@ export default async function TripDetailPage({ params }: TripPageProps) {
             </section>
           ) : null}
 
+          {hasTravelerNotes ? (
+            <section
+              className="trip-note-grid trip-highlights-grid"
+              id="tips"
+              aria-label="Trip highlights and tips"
+            >
+              {trip.highlights?.length ? (
+                <article className="trip-detail-card trip-note-card trip-highlight-card green">
+                  <span>
+                    <Sparkles aria-hidden="true" size={21} />
+                  </span>
+                  <div>
+                    <h2>Highlights</h2>
+                    <p>
+                      The moments this traveler felt were worth planning around.
+                    </p>
+                    <div className="trip-highlight-tags">
+                      {trip.highlights.map((highlight) => (
+                        <span key={highlight}>{highlight}</span>
+                      ))}
+                    </div>
+                  </div>
+                </article>
+              ) : null}
+              {trip.goodToKnow?.length ? (
+                <article className="trip-detail-card trip-note-card trip-highlight-card blue">
+                  <span>
+                    <Info aria-hidden="true" size={21} />
+                  </span>
+                  <div>
+                    <h2>Good to know</h2>
+                    <ul className="trip-note-list">
+                      {trip.goodToKnow.map((tip) => (
+                        <li key={tip}>{tip}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </article>
+              ) : null}
+            </section>
+          ) : null}
+
           {trip.spend ? (
             <section className="trip-detail-card trip-mobile-spend">
               <div className="trip-section-title-row">
                 <h2>
                   <WalletCards aria-hidden="true" size={22} />
-                  Approx. spend <small>(optional)</small>
+                  Budget shared
                 </h2>
                 <a href="#spend">See details</a>
               </div>
@@ -234,55 +235,6 @@ export default async function TripDetailPage({ params }: TripPageProps) {
           ) : null}
 
           {hasGallery ? <TripGallery images={trip.gallery!} /> : null}
-
-          {hasNotes ? (
-            <section
-              className="trip-note-grid"
-              id="tips"
-              aria-label="Trip notes"
-            >
-              {trip.notes!.map((note) => {
-                const Icon = noteIcons[note.tone];
-                return (
-                  <article
-                    className={"trip-note-card " + note.tone}
-                    key={note.title}
-                  >
-                    <span>
-                      <Icon aria-hidden="true" size={22} />
-                    </span>
-                    <div>
-                      <h2>
-                        {note.title}{" "}
-                        {note.optional ? <small>(optional)</small> : null}
-                      </h2>
-                      <p>{note.body}</p>
-                    </div>
-                  </article>
-                );
-              })}
-            </section>
-          ) : null}
-
-          {trip.transport ? (
-            <section
-              className="trip-detail-card trip-transport-card"
-              id="transport"
-            >
-              <div>
-                <span>
-                  <Car aria-hidden="true" size={23} />
-                </span>
-                <div>
-                  <h2>
-                    {trip.transport.title} <small>(optional)</small>
-                  </h2>
-                  <p>{trip.transport.body}</p>
-                </div>
-              </div>
-              <button type="button">View details</button>
-            </section>
-          ) : null}
         </div>
 
         <aside
@@ -304,7 +256,17 @@ export default async function TripDetailPage({ params }: TripPageProps) {
                         <Icon aria-hidden="true" size={18} />
                         {fact.label}
                       </dt>
-                      <dd>{fact.value}</dd>
+                      <dd>
+                        {fact.label === "Trip style" ? (
+                          <span className="trip-fact-chips">
+                            {trip.styles.map((style) => (
+                              <span key={style}>{style}</span>
+                            ))}
+                          </span>
+                        ) : (
+                          fact.value
+                        )}
+                      </dd>
                     </div>
                   );
                 })}
@@ -316,7 +278,7 @@ export default async function TripDetailPage({ params }: TripPageProps) {
             <section className="trip-side-card" id="spend">
               <h2>
                 <WalletCards aria-hidden="true" size={20} />
-                Approx. spend <small>(optional)</small>
+                Budget shared
               </h2>
               {trip.spend.label ? <p>{trip.spend.label}</p> : null}
               <strong className="trip-side-price">
@@ -326,23 +288,6 @@ export default async function TripDetailPage({ params }: TripPageProps) {
               {trip.spend.note ? <p>{trip.spend.note}</p> : null}
               <button type="button">
                 <ChevronDown aria-hidden="true" size={18} />
-              </button>
-            </section>
-          ) : null}
-
-          {trip.practicalTips?.length ? (
-            <section className="trip-side-card" id="tips-sidebar">
-              <h2>
-                <NotebookTabs aria-hidden="true" size={20} />
-                Practical tips <small>(optional)</small>
-              </h2>
-              <ul>
-                {trip.practicalTips.map((tip) => (
-                  <li key={tip}>{tip}</li>
-                ))}
-              </ul>
-              <button type="button" className="trip-add-tip">
-                Add your tips
               </button>
             </section>
           ) : null}

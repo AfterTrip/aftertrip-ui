@@ -1,18 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarDays, CircleDollarSign, Search, Tags } from "lucide-react";
-
-const filters = [
-  { label: "Anytime", icon: CalendarDays },
-  { label: "Any budget", icon: CircleDollarSign },
-  { label: "Trip type", icon: Tags }
-] as const;
+import { Search } from "lucide-react";
 
 export function TripSearch() {
   const [destination, setDestination] = useState("");
-  const [activeFilter, setActiveFilter] =
-    useState<(typeof filters)[number]["label"]>("Anytime");
 
   return (
     <form className="trip-search" role="search" action="/explore" method="get">
@@ -27,19 +19,7 @@ export function TripSearch() {
           placeholder="Where do you want to go?"
         />
       </label>
-      <div className="search-filters" aria-label="Trip filters">
-        {filters.map(({ label, icon: Icon }) => (
-          <button
-            type="button"
-            className={activeFilter === label ? "is-active" : undefined}
-            aria-pressed={activeFilter === label}
-            onClick={() => setActiveFilter(label)}
-            key={label}
-          >
-            <Icon aria-hidden="true" size={18} />
-            <span>{label}</span>
-          </button>
-        ))}
+      <div className="search-filters" aria-label="Explore trips">
         <button type="submit" className="home-explore-submit">
           <Search aria-hidden="true" size={21} />
           <span>Explore</span>
