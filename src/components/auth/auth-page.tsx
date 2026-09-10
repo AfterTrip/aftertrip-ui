@@ -1,5 +1,10 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
+import Script from "next/script";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
   Bookmark,
@@ -8,6 +13,45 @@ import {
   Send,
   UsersRound
 } from "lucide-react";
+import {
+  authenticateWithGoogle,
+  saveAuthenticationSession
+} from "@/lib/auth-client";
+import { getOwnProfile } from "@/lib/aftertrip-api";
+import { ThemeToggle } from "@/components/theme/theme-toggle";
+
+interface GoogleCredentialResponse {
+  credential: string;
+}
+
+interface GoogleIdentityApi {
+  initialize: (options: {
+    client_id: string;
+    callback: (response: GoogleCredentialResponse) => void;
+    ux_mode: "popup";
+  }) => void;
+  renderButton: (
+    parent: HTMLElement,
+    options: {
+      type: "standard";
+      theme: "outline";
+      size: "large";
+      shape: "rectangular";
+      text: "continue_with";
+      width: number;
+    }
+  ) => void;
+}
+
+declare global {
+  interface Window {
+    google?: {
+      accounts: {
+        id: GoogleIdentityApi;
+      };
+    };
+  }
+}
 
 const benefits = [
   {
@@ -32,18 +76,131 @@ const benefits = [
   }
 ];
 
-function GoogleMark() {
-  return (
-    <span className="google-mark" aria-hidden="true">
-      <i>G</i>
-    </span>
-  );
-}
-
 export function AuthPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const desktopGoogleButtonRef = useRef<HTMLDivElement>(null);
+  const mobileGoogleButtonRef = useRef<HTMLDivElement>(null);
+  const googleInitializedRef = useRef(false);
+  const [googleReady, setGoogleReady] = useState(false);
+  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID?.trim();
+  const [authStatus, setAuthStatus] = useState<"idle" | "signing-in" | "error">(
+    googleClientId ? "idle" : "error"
+  );
+  const [authMessage, setAuthMessage] = useState(
+    googleClientId
+      ? ""
+      : "Google sign-in is not configured. Add NEXT_PUBLIC_GOOGLE_CLIENT_ID and restart the frontend."
+  );
+
+  const handleGoogleCredential = useCallback(
+    async ({ credential }: GoogleCredentialResponse) => {
+      setAuthStatus("signing-in");
+      setAuthMessage("Signing you in securely...");
+
+      try {
+        const session = await authenticateWithGoogle(credential);
+        saveAuthenticationSession(session);
+        await getOwnProfile();
+        const requestedPath = searchParams.get("next");
+        const nextPath =
+          requestedPath?.startsWith("/") && !requestedPath.startsWith("//")
+            ? requestedPath
+            : "/dashboard";
+        router.replace(nextPath);
+        router.refresh();
+      } catch (error) {
+        setAuthStatus("error");
+        setAuthMessage(
+          error instanceof Error
+            ? error.message
+            : "AfterTrip could not complete the sign-in. Please try again."
+        );
+      }
+    },
+    [router, searchParams]
+  );
+
+  const initializeGoogleSignIn = useCallback(() => {
+    if (googleInitializedRef.current || !googleClientId || !window.google) {
+      return;
+    }
+
+    window.google.accounts.id.initialize({
+      client_id: googleClientId,
+      callback: handleGoogleCredential,
+      ux_mode: "popup"
+    });
+
+    googleInitializedRef.current = true;
+    setGoogleReady(true);
+    setAuthStatus("idle");
+    setAuthMessage("");
+  }, [googleClientId, handleGoogleCredential]);
+
+  useEffect(() => {
+    if (!googleReady || !window.google) return;
+
+    const hosts = [desktopGoogleButtonRef.current, mobileGoogleButtonRef.current].filter(
+      (host): host is HTMLDivElement => host !== null
+    );
+
+    const renderHost = (host: HTMLDivElement) => {
+      if (host.clientWidth <= 0) return;
+
+      const width = Math.min(396, Math.max(200, Math.floor(host.clientWidth - 4)));
+      if (host.dataset.googleButtonWidth === String(width) && host.children.length) {
+        return;
+      }
+
+      host.replaceChildren();
+      window.google?.accounts.id.renderButton(host, {
+        type: "standard",
+        theme: "outline",
+        size: "large",
+        shape: "rectangular",
+        text: "continue_with",
+        width
+      });
+      host.dataset.googleButtonWidth = String(width);
+    };
+
+    const observers = hosts.map((host) => {
+      renderHost(host);
+      const observer = new ResizeObserver(() => renderHost(host));
+      observer.observe(host);
+      return observer;
+    });
+
+    return () => observers.forEach((observer) => observer.disconnect());
+  }, [googleReady]);
+
+  const renderAuthStatus = () =>
+    authMessage ? (
+      <p
+        className={`auth-status ${authStatus === "error" ? "is-error" : ""}`}
+        role={authStatus === "error" ? "alert" : "status"}
+      >
+        {authMessage}
+      </p>
+    ) : null;
+
   return (
     <main id="main-content" className="auth-page">
+      <Script
+        id="google-identity-services"
+        src="https://accounts.google.com/gsi/client"
+        strategy="afterInteractive"
+        onReady={initializeGoogleSignIn}
+        onError={() => {
+          setAuthStatus("error");
+          setAuthMessage(
+            "Google sign-in could not load. Check your connection and try again."
+          );
+        }}
+      />
       <nav className="auth-top-links" aria-label="Authentication navigation">
+        <ThemeToggle />
         <Link href="/explore">Explore</Link>
         <span aria-hidden="true" />
         <Link href="/">
@@ -95,10 +252,14 @@ export function AuthPage() {
                 </article>
               ))}
             </div>
-            <button className="google-auth-button" type="button">
-              <GoogleMark />
-              Continue with Google
-            </button>
+            <div className="google-auth-control">
+              <div
+                ref={desktopGoogleButtonRef}
+                className="google-auth-button-host"
+                aria-label="Continue with Google"
+              />
+              {renderAuthStatus()}
+            </div>
             <p className="auth-terms">
               By continuing, you agree to our{" "}
               <Link href="/legal#terms">Terms</Link> and{" "}
@@ -134,10 +295,14 @@ export function AuthPage() {
         <div className="auth-mobile-card">
           <h2 id="mobile-auth-title">Continue to AfterTrip</h2>
           <p>Sign in or create your account instantly with Google.</p>
-          <button className="google-auth-button" type="button">
-            <GoogleMark />
-            Continue with Google
-          </button>
+          <div className="google-auth-control">
+            <div
+              ref={mobileGoogleButtonRef}
+              className="google-auth-button-host"
+              aria-label="Continue with Google"
+            />
+            {renderAuthStatus()}
+          </div>
           <div className="mobile-auth-terms">
             <LockKeyhole aria-hidden="true" size={26} />
             <p>
@@ -174,17 +339,18 @@ export function AuthPage() {
             aria-label="AfterTrip home"
           >
             <Image
-              src="/brand/aftertrip-mark.svg"
+              src="/brand/aftertrip-logo-green.png"
               alt=""
-              width={30}
-              height={30}
+              width={160}
+              height={53}
             />
-            <span>AfterTrip</span>
           </Link>
           <p>Real journeys. Beautifully shared.</p>
         </div>
         <nav aria-label="Auth footer links">
-          <Link href="mailto:hello@aftertrip.com">hello@aftertrip.com</Link>
+          <Link href="mailto:support@after-trip.com">
+            support@after-trip.com
+          </Link>
           <Link href="/legal#terms">Terms of Use</Link>
           <Link href="/legal#privacy">Privacy Policy</Link>
         </nav>

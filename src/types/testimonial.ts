@@ -6,5 +6,6 @@ export type Testimonial = {
   avatar: {
     initials: string;
     tone: "coral" | "teal" | "sand";
+    src?: string | null;
   };
 };

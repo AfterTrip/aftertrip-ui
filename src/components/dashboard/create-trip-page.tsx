@@ -5,7 +5,7 @@ import Link from "next/link";
 import {
   ArrowLeft,
   ArrowRight,
-  Bell,
+  AlertCircle,
   CalendarDays,
   Check,
   ChevronDown,
@@ -16,7 +16,6 @@ import {
   ImagePlus,
   Map,
   MapPin,
-  Menu,
   MoreHorizontal,
   Pencil,
   Play,
@@ -28,10 +27,31 @@ import {
   X
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
-  searchVerifiedPlaces,
-  type VerifiedPlace
-} from "@/data/verified-places";
+  createTripDraft,
+  deleteTrip,
+  deleteMedia,
+  getOwnedMedia,
+  getOwnedTrip,
+  loadOwnedMedia,
+  publishTrip,
+  resolveLocation,
+  searchLocations,
+  updateTripBasics,
+  updateTripBudget,
+  updateTripItinerary,
+  updateTripStory,
+  uploadMedia,
+  type ApiLocationSuggestion,
+  type ApiResolvedLocation,
+  type ApiTrip
+} from "@/lib/aftertrip-api";
+import { titleCaseEnum } from "@/lib/formatters";
+import { useAuthenticatedPage } from "@/lib/use-authenticated-page";
+import { AccountMenu } from "@/components/layout/account-menu";
+import { DeleteTripDialog } from "@/components/dashboard/delete-trip-dialog";
+import { ThemeToggle } from "@/components/theme/theme-toggle";
 
 type StepId = "basics" | "about" | "itinerary" | "budget" | "review";
 type MediaItem = {
@@ -47,7 +67,13 @@ type ItineraryDay = {
   description: string;
 };
 
-const profilePhoto = "/images/hero/mountain-lake-traveler.png";
+const contentLimits = {
+  summary: 1200,
+  goodToKnow: 2000,
+  highlight: 160,
+  itineraryHeadline: 140,
+  itineraryDescription: 2000
+} as const;
 
 const sidebarItems = [
   { label: "My Trips", href: "/dashboard", icon: Home },
@@ -120,229 +146,50 @@ const tripStyleOptions = [
   "Winter Escape"
 ];
 const budgetRows = ["Stay", "Transport", "Food", "Activities", "Miscellaneous"];
-
-const editableTripPrefills: Record<
-  string,
-  {
-    title: string;
-    destination: string;
-    startDate: string;
-    endDate: string;
-    tripGroup: string;
-    coverPhoto: MediaItem;
-    summary: string;
-    styles: string[];
-    highlights: string[];
-    itineraryDays: ItineraryDay[];
-    budgetAmount: string;
-  }
-> = {
-  "meghalaya-road-trip": {
-    title: "Meghalaya Road Trip",
-    destination: "Meghalaya, India",
-    startDate: "2024-05-12",
-    endDate: "2024-05-18",
-    tripGroup: "Friends",
-    coverPhoto: {
-      id: "meghalaya-cover",
-      url: "/images/cta/share-adventure.png",
-      name: "Meghalaya cover",
-      kind: "photo"
-    },
-    summary:
-      "A green, slow-paced road trip through misty hills, living roots and quiet villages.",
-    styles: ["Road trip", "Nature", "Adventure"],
-    highlights: ["Living root bridges", "Dawki river", "Cloudy hill roads"],
-    itineraryDays: [
-      {
-        id: "day-1",
-        headline: "Guwahati to Shillong",
-        description: "Arrive in Guwahati and drive toward Shillong."
-      },
-      {
-        id: "day-2",
-        headline: "Shillong to Cherrapunji",
-        description: "Waterfalls, viewpoints and misty cave walks."
-      }
-    ],
-    budgetAmount: "24800"
-  },
-  "bali-island-of-gods": {
-    title: "Bali: Island of Gods",
-    destination: "Bali, Indonesia",
-    startDate: "2024-04-03",
-    endDate: "2024-04-09",
-    tripGroup: "Couple",
-    coverPhoto: {
-      id: "bali-cover",
-      url: "/images/trips/bali.png",
-      name: "Bali cover",
-      kind: "photo"
-    },
-    summary:
-      "A sunny Bali escape with beaches, temples, food stops and relaxed coastal drives.",
-    styles: ["Beach", "Culture", "Food"],
-    highlights: ["Beach mornings", "Temple sunsets", "Local food"],
-    itineraryDays: [
-      {
-        id: "day-1",
-        headline: "Ubud arrival",
-        description: "Settle in, walk around local cafes and markets."
-      }
-    ],
-    budgetAmount: "54000"
-  },
-  "kashmir-in-spring": {
-    title: "Kashmir in Spring",
-    destination: "Kashmir, India",
-    startDate: "2024-03-15",
-    endDate: "2024-03-21",
-    tripGroup: "Family",
-    coverPhoto: {
-      id: "kashmir-cover",
-      url: "/images/trips/switzerland.png",
-      name: "Kashmir cover",
-      kind: "photo"
-    },
-    summary: "Snow peaks, valley views and quiet spring days across Kashmir.",
-    styles: ["Nature", "Mountains", "Relaxed"],
-    highlights: ["Spring valleys", "Mountain views", "Slow village walks"],
-    itineraryDays: [
-      {
-        id: "day-1",
-        headline: "Srinagar arrival",
-        description: "Arrive, settle in and take a relaxed evening walk."
-      }
-    ],
-    budgetAmount: "62000"
-  },
-  "thailand-getaway": {
-    title: "Thailand Getaway",
-    destination: "Thailand",
-    startDate: "2024-02-10",
-    endDate: "2024-02-16",
-    tripGroup: "Friends",
-    coverPhoto: {
-      id: "thailand-cover",
-      url: "/images/trips/thailand.png",
-      name: "Thailand cover",
-      kind: "photo"
-    },
-    summary: "Island hopping, clear water and easy beach days with friends.",
-    styles: ["Beach", "Relaxed", "Adventure"],
-    highlights: ["Island hopping", "Boat rides", "Turquoise water"],
-    itineraryDays: [
-      {
-        id: "day-1",
-        headline: "Island arrival",
-        description: "Check in near the beach and keep the first day relaxed."
-      }
-    ],
-    budgetAmount: "68000"
-  },
-  "munnar-monsoon-escape": {
-    title: "Munnar Monsoon Escape",
-    destination: "Munnar, Kerala, India",
-    startDate: "2024-07-08",
-    endDate: "2024-07-12",
-    tripGroup: "Solo",
-    coverPhoto: {
-      id: "munnar-cover",
-      url: "/images/destinations/thailand.png",
-      name: "Munnar cover",
-      kind: "photo"
-    },
-    summary: "A quiet monsoon escape through tea gardens and misty hill roads.",
-    styles: ["Nature", "Mountains", "Relaxed"],
-    highlights: ["Tea gardens", "Rainy viewpoints", "Calm stays"],
-    itineraryDays: [
-      {
-        id: "day-1",
-        headline: "Arrive in Munnar",
-        description: "Check in and explore nearby tea garden viewpoints."
-      }
-    ],
-    budgetAmount: "18000"
-  },
-  "japan-cherry-blossom": {
-    title: "Japan Cherry Blossom",
-    destination: "Japan",
-    startDate: "2024-04-01",
-    endDate: "2024-04-07",
-    tripGroup: "Couple",
-    coverPhoto: {
-      id: "japan-cover",
-      url: "/images/destinations/japan.png",
-      name: "Japan cover",
-      kind: "photo"
-    },
-    summary:
-      "Cherry blossom walks, temple visits and quiet city evenings in Japan.",
-    styles: ["Culture", "City", "Food"],
-    highlights: ["Cherry blossoms", "Temple walks", "Local trains"],
-    itineraryDays: [
-      {
-        id: "day-1",
-        headline: "Tokyo arrival",
-        description: "Arrive, settle in and explore a nearby blossom walk."
-      }
-    ],
-    budgetAmount: "115000"
-  }
-};
-
 type CreateTripPageProps = {
   tripId?: string;
 };
 
 export function CreateTripPage({ tripId }: CreateTripPageProps = {}) {
-  const initialTrip = tripId ? editableTripPrefills[tripId] : undefined;
-  const initialDestination = initialTrip
-    ? searchVerifiedPlaces(initialTrip.destination)[0]
-    : undefined;
+  const authenticated = useAuthenticatedPage();
+  const router = useRouter();
   const [stepIndex, setStepIndex] = useState(0);
-  const [title, setTitle] = useState(initialTrip?.title ?? "");
-  const [destination, setDestination] = useState(
-    initialTrip?.destination ?? ""
-  );
+  const [title, setTitle] = useState("");
+  const [destination, setDestination] = useState("");
   const [selectedDestination, setSelectedDestination] = useState<
-    VerifiedPlace | undefined
-  >(initialDestination);
-  const [startDate, setStartDate] = useState(initialTrip?.startDate ?? "");
-  const [endDate, setEndDate] = useState(initialTrip?.endDate ?? "");
-  const [tripGroup, setTripGroup] = useState(initialTrip?.tripGroup ?? "");
-  const [coverPhoto, setCoverPhoto] = useState<MediaItem | undefined>(
-    initialTrip?.coverPhoto
-  );
-  const [summary, setSummary] = useState(initialTrip?.summary ?? "");
-  const [selectedTripStyles, setSelectedTripStyles] = useState(
-    new Set<string>(initialTrip?.styles ?? [])
-  );
+    ApiResolvedLocation | undefined
+  >();
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [tripGroup, setTripGroup] = useState("");
+  const [coverPhoto, setCoverPhoto] = useState<MediaItem | undefined>();
+  const [summary, setSummary] = useState("");
+  const [selectedTripStyles, setSelectedTripStyles] = useState(new Set<string>());
   const [highlightInput, setHighlightInput] = useState("");
-  const [highlights, setHighlights] = useState<string[]>(
-    initialTrip?.highlights ?? []
-  );
+  const [highlights, setHighlights] = useState<string[]>([]);
   const [goodToKnow, setGoodToKnow] = useState("");
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [previewMedia, setPreviewMedia] = useState<MediaItem | undefined>();
+  const [tripPreviewOpen, setTripPreviewOpen] = useState(false);
   const [itineraryDays, setItineraryDays] = useState<ItineraryDay[]>([
-    ...(initialTrip?.itineraryDays ?? [
-      { id: "day-1", headline: "", description: "" }
-    ])
+    { id: "day-1", headline: "", description: "" }
   ]);
   const [budgetMode, setBudgetMode] = useState("Exact amount");
   const [budgetCurrency, setBudgetCurrency] = useState("INR");
-  const [budgetAmount, setBudgetAmount] = useState(
-    initialTrip?.budgetAmount ?? ""
-  );
+  const [budgetAmount, setBudgetAmount] = useState("");
   const [budgetMin, setBudgetMin] = useState("");
   const [budgetMax, setBudgetMax] = useState("");
   const [budgetCategories, setBudgetCategories] = useState(
     Object.fromEntries(budgetRows.map((row) => [row, ""]))
   );
-  const [autosaveStatus, setAutosaveStatus] = useState("Autosaved");
-  const hasMounted = useRef(false);
-  const autosaveTimer = useRef<number | undefined>(undefined);
+  const [autosaveStatus, setAutosaveStatus] = useState("Not saved yet");
+  const [saveError, setSaveError] = useState("");
+  const [activeTripId, setActiveTripId] = useState(tripId);
+  const [ready, setReady] = useState(false);
+  const initializationStarted = useRef(false);
+  const activeTripIdRef = useRef(tripId);
+  const draftCreation = useRef<Promise<string> | null>(null);
+  const saveQueue = useRef<Promise<void>>(Promise.resolve());
 
   const currentStep = steps[stepIndex];
   const duration = useMemo(
@@ -364,19 +211,243 @@ export function CreateTripPage({ tripId }: CreateTripPageProps = {}) {
       ? Boolean(budgetAmount.trim())
       : Boolean(budgetMin.trim() && budgetMax.trim());
   const requiredComplete = basicsComplete && aboutComplete && budgetComplete;
-  useEffect(() => {
-    if (!hasMounted.current) {
-      hasMounted.current = true;
-      return;
-    }
+  const hasDraftContent = Boolean(
+    title.trim() ||
+      destination.trim() ||
+      selectedDestination ||
+      startDate ||
+      endDate ||
+      tripGroup ||
+      coverPhoto ||
+      summary.trim() ||
+      selectedTripStyles.size ||
+      highlights.length ||
+      goodToKnow.trim() ||
+      media.length ||
+      itineraryDays.some(
+        (day) => day.headline.trim() || day.description.trim()
+      ) ||
+      budgetMode !== "Exact amount" ||
+      budgetCurrency !== "INR" ||
+      budgetAmount.trim() ||
+      budgetMin.trim() ||
+      budgetMax.trim() ||
+      Object.values(budgetCategories).some((value) => value.trim())
+  );
 
-    setAutosaveStatus("Saving...");
-    const timeout = window.setTimeout(
-      () => setAutosaveStatus("Autosaved"),
-      500
+  const ensureDraftExists = async () => {
+    if (activeTripIdRef.current) return activeTripIdRef.current;
+    if (draftCreation.current) return draftCreation.current;
+
+    const creation = createTripDraft().then((trip) => {
+      activeTripIdRef.current = trip.id;
+      setActiveTripId(trip.id);
+      router.replace(`/dashboard/create-trip?trip=${trip.id}`);
+      return trip.id;
+    });
+    draftCreation.current = creation;
+
+    try {
+      return await creation;
+    } finally {
+      if (draftCreation.current === creation) draftCreation.current = null;
+    }
+  };
+
+  const hydrateTrip = async (trip: ApiTrip) => {
+    setTitle(trip.title ?? "");
+    setDestination(trip.destination?.displayName ?? "");
+    setSelectedDestination(
+      trip.destination
+        ? {
+            provider: trip.destination.provider,
+            providerPlaceId: trip.destination.providerPlaceId,
+            name: trip.destination.name,
+            displayName: trip.destination.displayName,
+            featureType: "place",
+            locality: trip.destination.locality,
+            region: trip.destination.region,
+            country: trip.destination.country,
+            countryCode: trip.destination.countryCode,
+            latitude: trip.destination.latitude,
+            longitude: trip.destination.longitude
+          }
+        : undefined
     );
+    setStartDate(trip.startDate ?? "");
+    setEndDate(trip.endDate ?? "");
+    setTripGroup(titleCaseEnum(trip.tripGroup));
+    setSummary(trip.summary ?? "");
+    setSelectedTripStyles(new Set(trip.styles.map(titleCaseEnum)));
+    setHighlights(trip.highlights);
+    setGoodToKnow(trip.goodToKnow ?? "");
+    setItineraryDays(
+      trip.itinerary.length
+        ? trip.itinerary.map((day, index) => ({
+            id: `day-${index + 1}`,
+            headline: day.headline ?? "",
+            description: day.description ?? ""
+          }))
+        : [{ id: "day-1", headline: "", description: "" }]
+    );
+    setBudgetMode(trip.budgetMode === "RANGE" ? "Budget range" : "Exact amount");
+    setBudgetCurrency(trip.budgetCurrency ?? "INR");
+    setBudgetAmount(trip.budgetAmount?.toString() ?? "");
+    setBudgetMin(trip.budgetMin?.toString() ?? "");
+    setBudgetMax(trip.budgetMax?.toString() ?? "");
+    setBudgetCategories(
+      Object.fromEntries(
+        budgetRows.map((row) => [
+          row,
+          trip.budgetCategories[toApiEnum(row)]?.toString() ?? ""
+        ])
+      )
+    );
+    if (trip.coverMediaId) {
+      const blob = await loadOwnedMedia(trip.coverMediaId);
+      setCoverPhoto({
+        id: trip.coverMediaId,
+        url: URL.createObjectURL(blob),
+        name: "Trip cover",
+        kind: "photo"
+      });
+    }
+    if (trip.galleryMediaIds.length) {
+      setMedia(
+        await Promise.all(
+          trip.galleryMediaIds.map(async (mediaId) => {
+            const [metadata, blob] = await Promise.all([
+              getOwnedMedia(mediaId),
+              loadOwnedMedia(mediaId)
+            ]);
+            return {
+              id: mediaId,
+              url: URL.createObjectURL(blob),
+              name: metadata.originalFilename,
+              kind:
+                metadata.mediaType === "VIDEO"
+                  ? ("video" as const)
+                  : ("photo" as const)
+            };
+          })
+        )
+      );
+    }
+  };
+
+  const persistStep = async (step: StepId) => {
+    const persistedTripId =
+      activeTripIdRef.current ??
+      (hasDraftContent ? await ensureDraftExists() : undefined);
+    if (!persistedTripId) return;
+
+    if (step === "basics") {
+      await updateTripBasics(persistedTripId, {
+        title: title.trim() || null,
+        destination: selectedDestination
+          ? {
+              provider: selectedDestination.provider,
+              providerPlaceId: selectedDestination.providerPlaceId,
+              name: selectedDestination.name,
+              displayName: selectedDestination.displayName,
+              locality: selectedDestination.locality ?? null,
+              region: selectedDestination.region ?? null,
+              country: selectedDestination.country,
+              countryCode: selectedDestination.countryCode,
+              latitude: selectedDestination.latitude,
+              longitude: selectedDestination.longitude
+            }
+          : null,
+        startDate: startDate || null,
+        endDate: endDate || null,
+        coverMediaId: coverPhoto?.id ?? null,
+        tripGroup: tripGroup ? toApiEnum(tripGroup) : null
+      });
+    } else if (step === "about") {
+      await updateTripStory(persistedTripId, {
+        summary: summary.trim() || null,
+        styles: [...selectedTripStyles].map(toApiEnum),
+        highlights,
+        goodToKnow: goodToKnow.trim() || null,
+        galleryMediaIds: media.map((item) => item.id)
+      });
+    } else if (step === "itinerary") {
+      await updateTripItinerary(persistedTripId, {
+        days: itineraryDays.map(({ headline, description }) => ({
+          headline,
+          description
+        }))
+      });
+    } else if (step === "budget") {
+      await updateTripBudget(persistedTripId, {
+        mode: budgetMode === "Budget range" ? "RANGE" : "EXACT",
+        currency: budgetCurrency,
+        amount:
+          budgetMode === "Exact amount" && budgetAmount
+            ? Number(budgetAmount)
+            : null,
+        minimum:
+          budgetMode === "Budget range" && budgetMin ? Number(budgetMin) : null,
+        maximum:
+          budgetMode === "Budget range" && budgetMax ? Number(budgetMax) : null,
+        categories: Object.fromEntries(
+          Object.entries(budgetCategories)
+            .filter(([, value]) => value)
+            .map(([key, value]) => [toApiEnum(key), Number(value)])
+        )
+      });
+    }
+  };
+
+  const queuePersist = (step: StepId) => {
+    const operation = saveQueue.current
+      .catch(() => undefined)
+      .then(() => persistStep(step));
+    saveQueue.current = operation.catch(() => undefined);
+    return operation;
+  };
+
+  const showSaveError = (message = "We couldn't save your latest changes. Check your connection and try again.") => {
+    setAutosaveStatus("Changes pending");
+    setSaveError(message);
+  };
+
+  useEffect(() => {
+    if (!authenticated || initializationStarted.current) return;
+    initializationStarted.current = true;
+    void (async () => {
+      try {
+        if (tripId) {
+          activeTripIdRef.current = tripId;
+          setActiveTripId(tripId);
+          await hydrateTrip(await getOwnedTrip(tripId));
+        }
+        setReady(true);
+        setAutosaveStatus(tripId ? "Autosaved" : "Not saved yet");
+      } catch {
+        showSaveError("We couldn't open this trip right now. Refresh the page and try again.");
+      }
+    })();
+  }, [authenticated, router, tripId]);
+
+  useEffect(() => {
+    if (!ready || (!activeTripId && !hasDraftContent)) return;
+    const timeout = window.setTimeout(() => {
+      setAutosaveStatus("Saving...");
+      void queuePersist(currentStep.id)
+        .then(() => {
+          setAutosaveStatus("Autosaved");
+          setSaveError("");
+        })
+        .catch(() => showSaveError());
+    }, 700);
     return () => window.clearTimeout(timeout);
+  // Each listed field is part of the draft snapshot persisted by persistStep.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
+    activeTripId,
+    currentStep.id,
+    ready,
     title,
     destination,
     selectedDestination,
@@ -396,17 +467,9 @@ export function CreateTripPage({ tripId }: CreateTripPageProps = {}) {
     budgetAmount,
     budgetMin,
     budgetMax,
-    budgetCategories
+    budgetCategories,
+    hasDraftContent
   ]);
-
-  const markAutosaving = () => {
-    setAutosaveStatus("Saving...");
-    if (autosaveTimer.current) window.clearTimeout(autosaveTimer.current);
-    autosaveTimer.current = window.setTimeout(
-      () => setAutosaveStatus("Autosaved"),
-      500
-    );
-  };
 
   const addHighlight = () => {
     const next = highlightInput.trim();
@@ -415,19 +478,30 @@ export function CreateTripPage({ tripId }: CreateTripPageProps = {}) {
     setHighlightInput("");
   };
 
-  const addMedia = (files: FileList | null) => {
+  const addMedia = async (files: FileList | null) => {
     if (!files?.length) return;
-    const next = Array.from(files)
-      .slice(0, 6)
-      .map((file) => ({
-        id: file.name + file.lastModified,
-        url: URL.createObjectURL(file),
-        name: file.name,
-        kind: file.type.startsWith("video")
-          ? ("video" as const)
-          : ("photo" as const)
-      }));
-    setMedia((items) => [...items, ...next].slice(0, 10));
+    setAutosaveStatus("Uploading media...");
+    try {
+      const selected = Array.from(files).slice(0, Math.max(0, 10 - media.length));
+      const uploaded = await Promise.all(
+        selected.map(async (file) => {
+          const result = await uploadMedia(file, "TRIP_GALLERY");
+          return {
+            id: result.id,
+            url: URL.createObjectURL(file),
+            name: file.name,
+            kind: file.type.startsWith("video")
+              ? ("video" as const)
+              : ("photo" as const)
+          };
+        })
+      );
+      setMedia((items) => [...items, ...uploaded].slice(0, 10));
+      setAutosaveStatus("Media uploaded");
+      setSaveError("");
+    } catch {
+      showSaveError("We couldn't upload that media. Check the file and your connection, then try again.");
+    }
   };
 
   const removeMedia = (id: string) => {
@@ -437,21 +511,44 @@ export function CreateTripPage({ tripId }: CreateTripPageProps = {}) {
       return items.filter((item) => item.id !== id);
     });
     setPreviewMedia((item) => (item?.id === id ? undefined : item));
+    void deleteMedia(id).catch(() => undefined);
   };
 
-  const addCoverPhoto = (files: FileList | null) => {
+  const addCoverPhoto = async (files: FileList | null) => {
     const file = files?.[0];
     if (!file || !file.type.startsWith("image")) return;
-    setCoverPhoto({
-      id: file.name + file.lastModified,
-      url: URL.createObjectURL(file),
-      name: file.name,
-      kind: "photo"
-    });
+    setAutosaveStatus("Uploading cover...");
+    try {
+      const uploaded = await uploadMedia(file, "TRIP_COVER");
+      setCoverPhoto({
+        id: uploaded.id,
+        url: URL.createObjectURL(file),
+        name: file.name,
+        kind: "photo"
+      });
+      setAutosaveStatus("Cover uploaded");
+      setSaveError("");
+    } catch {
+      showSaveError("We couldn't upload that cover photo. Check the file and try again.");
+    }
   };
 
-  const goNext = () =>
-    setStepIndex((index) => Math.min(index + 1, steps.length - 1));
+  const goNext = async () => {
+    if (!activeTripIdRef.current && !hasDraftContent) {
+      setAutosaveStatus("Not saved yet");
+      setStepIndex((index) => Math.min(index + 1, steps.length - 1));
+      return;
+    }
+    setAutosaveStatus("Saving...");
+    try {
+      await queuePersist(currentStep.id);
+      setAutosaveStatus("Autosaved");
+      setSaveError("");
+      setStepIndex((index) => Math.min(index + 1, steps.length - 1));
+    } catch {
+      showSaveError("We couldn't save this section. Your entries are still here, so please try again.");
+    }
+  };
   const goBack = () => setStepIndex((index) => Math.max(index - 1, 0));
   const jumpTo = (index: number) => setStepIndex(index);
 
@@ -472,10 +569,32 @@ export function CreateTripPage({ tripId }: CreateTripPageProps = {}) {
               <h1 id="create-trip-title">Create Trip</h1>
               <p>Share your journey. Inspire others.</p>
             </div>
-            <p className="autosave-status" aria-live="polite">
-              <Check aria-hidden="true" size={18} />
-              {autosaveStatus}
-            </p>
+            <div className="create-heading-actions">
+              <p className="autosave-status" aria-live="polite">
+                <Check aria-hidden="true" size={18} />
+                {autosaveStatus}
+              </p>
+              <button
+                className="create-preview-trip"
+                type="button"
+                onClick={() => setTripPreviewOpen(true)}
+              >
+                <Eye aria-hidden="true" size={17} />
+                Preview
+              </button>
+              {activeTripId ? (
+                <DeleteTripDialog
+                  className="create-delete-trip"
+                  showLabel
+                  tripTitle={title || "Untitled trip"}
+                  onDelete={async () => {
+                    setReady(false);
+                    await deleteTrip(activeTripId);
+                    router.replace("/dashboard");
+                  }}
+                />
+              ) : null}
+            </div>
           </div>
 
           <nav className="create-stepper" aria-label="Trip creation steps">
@@ -527,11 +646,9 @@ export function CreateTripPage({ tripId }: CreateTripPageProps = {}) {
 
           <form
             className="create-step-card"
-            onInput={markAutosaving}
-            onChange={markAutosaving}
             onSubmit={(event) => {
               event.preventDefault();
-              goNext();
+              void goNext();
             }}
           >
             {currentStep.id === "basics" ? (
@@ -594,7 +711,7 @@ export function CreateTripPage({ tripId }: CreateTripPageProps = {}) {
             {currentStep.id === "review" ? (
               <ReviewStep
                 title={title}
-                destination={selectedDestination?.label || destination}
+                destination={selectedDestination?.displayName || destination}
                 duration={duration}
                 coverPhoto={coverPhoto}
                 highlights={highlights}
@@ -614,7 +731,7 @@ export function CreateTripPage({ tripId }: CreateTripPageProps = {}) {
               )}
               <div>
                 {currentStep.optional && currentStep.id !== "review" ? (
-                  <button type="button" className="ghost" onClick={goNext}>
+                  <button type="button" className="ghost" onClick={() => void goNext()}>
                     Skip for now
                   </button>
                 ) : null}
@@ -628,6 +745,16 @@ export function CreateTripPage({ tripId }: CreateTripPageProps = {}) {
                         ? "Publish trip"
                         : "Complete all required sections before publishing"
                     }
+                    onClick={async () => {
+                      if (!activeTripId) return;
+                      setAutosaveStatus("Publishing...");
+                      try {
+                        const published = await publishTrip(activeTripId);
+                        router.push(`/trips/${published.slug}`);
+                      } catch {
+                        showSaveError("We couldn't publish this trip right now. Please try again.");
+                      }
+                    }}
                   >
                     <Sparkles aria-hidden="true" size={19} />
                     Publish Trip
@@ -643,9 +770,42 @@ export function CreateTripPage({ tripId }: CreateTripPageProps = {}) {
           </form>
         </section>
       </div>
+      {saveError ? (
+        <aside className="create-save-alert" role="alert" aria-live="assertive">
+          <AlertCircle aria-hidden="true" size={21} />
+          <div>
+            <strong>Your changes need attention</strong>
+            <p>{saveError}</p>
+          </div>
+          <button type="button" onClick={() => setSaveError("")} aria-label="Dismiss save message">
+            <X aria-hidden="true" size={18} />
+          </button>
+        </aside>
+      ) : null}
       <MediaLightbox
         item={previewMedia}
         onClose={() => setPreviewMedia(undefined)}
+      />
+      <TripDraftPreview
+        open={tripPreviewOpen}
+        onClose={() => setTripPreviewOpen(false)}
+        title={title}
+        destination={selectedDestination?.displayName || destination}
+        duration={duration}
+        tripGroup={tripGroup}
+        coverPhoto={coverPhoto}
+        summary={summary}
+        styles={[...selectedTripStyles]}
+        highlights={highlights}
+        goodToKnow={goodToKnow}
+        media={media}
+        itineraryDays={itineraryDays}
+        budgetMode={budgetMode}
+        budgetCurrency={budgetCurrency}
+        budgetAmount={budgetAmount}
+        budgetMin={budgetMin}
+        budgetMax={budgetMax}
+        budgetCategories={budgetCategories}
       />
     </main>
   );
@@ -656,14 +816,13 @@ function DashboardTopbar() {
     <header className="dashboard-topbar" aria-label="Dashboard header">
       <Link className="dashboard-brand" href="/" aria-label="AfterTrip home">
         <Image
-          src="/brand/aftertrip-mark.svg"
+          src="/brand/aftertrip-logo-green.png"
           alt=""
-          width={38}
-          height={38}
+          width={160}
+          height={53}
           priority
           aria-hidden="true"
         />
-        <span>AfterTrip</span>
       </Link>
       <nav className="dashboard-desktop-nav" aria-label="Dashboard navigation">
         <Link href="/explore">Explore</Link>
@@ -671,40 +830,12 @@ function DashboardTopbar() {
         <Link href="/#how-it-works">How it works</Link>
       </nav>
       <div className="dashboard-top-actions">
-        <button
-          className="dashboard-icon-button"
-          type="button"
-          aria-label="Notifications"
-        >
-          <Bell aria-hidden="true" size={22} />
-        </button>
-        <Link
-          className="dashboard-profile-button"
-          href="/dashboard/edit-profile"
-          aria-label="Open edit profile"
-        >
-          <span
-            style={{ backgroundImage: "url(" + profilePhoto + ")" }}
-            aria-hidden="true"
-          />
-          <ChevronDown aria-hidden="true" size={18} />
-        </Link>
+        <ThemeToggle />
+        <AccountMenu variant="dashboard" />
       </div>
       <div className="dashboard-mobile-actions">
-        <button
-          className="dashboard-icon-button"
-          type="button"
-          aria-label="Notifications"
-        >
-          <Bell aria-hidden="true" size={21} />
-        </button>
-        <button
-          className="dashboard-icon-button"
-          type="button"
-          aria-label="Open menu"
-        >
-          <Menu aria-hidden="true" size={25} />
-        </button>
+        <ThemeToggle />
+        <AccountMenu variant="dashboard" />
       </div>
     </header>
   );
@@ -815,6 +946,235 @@ function MediaLightbox({
   );
 }
 
+function TripDraftPreview({
+  open,
+  onClose,
+  title,
+  destination,
+  duration,
+  tripGroup,
+  coverPhoto,
+  summary,
+  styles,
+  highlights,
+  goodToKnow,
+  media,
+  itineraryDays,
+  budgetMode,
+  budgetCurrency,
+  budgetAmount,
+  budgetMin,
+  budgetMax,
+  budgetCategories
+}: {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  destination: string;
+  duration: string;
+  tripGroup: string;
+  coverPhoto?: MediaItem;
+  summary: string;
+  styles: string[];
+  highlights: string[];
+  goodToKnow: string;
+  media: MediaItem[];
+  itineraryDays: ItineraryDay[];
+  budgetMode: string;
+  budgetCurrency: string;
+  budgetAmount: string;
+  budgetMin: string;
+  budgetMax: string;
+  budgetCategories: Record<string, string>;
+}) {
+  useEffect(() => {
+    if (!open) return;
+    const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [onClose, open]);
+
+  if (!open) return null;
+
+  const completedDays = itineraryDays.filter(
+    (day) => day.headline.trim() || day.description.trim()
+  );
+  const categoryRows = Object.entries(budgetCategories).filter(
+    ([, value]) => value.trim()
+  );
+  const formatMoney = (value: string) => {
+    const amount = Number(value);
+    if (!value || !Number.isFinite(amount)) return "";
+    return new Intl.NumberFormat("en", {
+      style: "currency",
+      currency: budgetCurrency,
+      maximumFractionDigits: 0
+    }).format(amount);
+  };
+  const budgetLabel =
+    budgetMode === "Budget range"
+      ? [formatMoney(budgetMin), formatMoney(budgetMax)].filter(Boolean).join(" - ")
+      : formatMoney(budgetAmount);
+
+  return (
+    <div
+      className="trip-draft-preview-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="trip-draft-preview-title"
+    >
+      <button
+        className="trip-draft-preview-backdrop"
+        type="button"
+        onClick={onClose}
+        aria-label="Close trip preview"
+      />
+      <section className="trip-draft-preview-dialog">
+        <header className="trip-draft-preview-toolbar">
+          <div>
+            <Eye aria-hidden="true" size={18} />
+            <span>
+              <strong>Traveler preview</strong>
+              <small>Only you can see this draft</small>
+            </span>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Close trip preview">
+            <X aria-hidden="true" size={21} />
+          </button>
+        </header>
+
+        <div className="trip-draft-preview-scroll">
+          <section className="trip-draft-preview-hero">
+            <MediaPreview
+              item={coverPhoto}
+              fallback="/images/hero/mountain-lake-traveler.png"
+              alt="Trip cover preview"
+              sizes="1100px"
+            />
+            <span className="trip-draft-preview-shade" aria-hidden="true" />
+            <div>
+              <small>{destination || "Destination not added yet"}</small>
+              <h2 id="trip-draft-preview-title">{title || "Your trip title"}</h2>
+              {summary.trim() ? <p>{summary}</p> : null}
+              <nav aria-label="Draft trip essentials">
+                {duration ? <span><CalendarDays aria-hidden="true" size={15} />{duration}</span> : null}
+                {tripGroup ? <span><Users aria-hidden="true" size={15} />{tripGroup}</span> : null}
+                {budgetLabel ? <span><CircleDollarSign aria-hidden="true" size={15} />{budgetLabel} / person</span> : null}
+              </nav>
+            </div>
+          </section>
+
+          <div className="trip-draft-preview-content">
+            <div className="trip-draft-preview-primary">
+              {summary.trim() ? (
+                <section className="trip-draft-preview-section">
+                  <p className="trip-draft-preview-eyebrow">About this trip</p>
+                  <p>{summary}</p>
+                  {styles.length ? (
+                    <div className="trip-draft-preview-chips">
+                      {styles.map((style) => <span key={style}>{style}</span>)}
+                    </div>
+                  ) : null}
+                </section>
+              ) : null}
+
+              {completedDays.length ? (
+                <section className="trip-draft-preview-section">
+                  <p className="trip-draft-preview-eyebrow">Itinerary</p>
+                  <div className="trip-draft-preview-itinerary">
+                    {completedDays.map((day, index) => (
+                      <article key={day.id}>
+                        <span>Day {index + 1}</span>
+                        <div>
+                          <strong>{day.headline || "A day on the journey"}</strong>
+                          {day.description ? <p>{day.description}</p> : null}
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+
+              {highlights.length || goodToKnow.trim() ? (
+                <section className="trip-draft-preview-section">
+                  <p className="trip-draft-preview-eyebrow">Traveler notes</p>
+                  {highlights.length ? (
+                    <div className="trip-draft-preview-highlights">
+                      {highlights.map((highlight) => (
+                        <span key={highlight}><Check aria-hidden="true" size={15} />{highlight}</span>
+                      ))}
+                    </div>
+                  ) : null}
+                  {goodToKnow.trim() ? (
+                    <div className="trip-draft-preview-note">
+                      <strong>Good to know</strong>
+                      <p>{goodToKnow}</p>
+                    </div>
+                  ) : null}
+                </section>
+              ) : null}
+
+              {media.length ? (
+                <section className="trip-draft-preview-section">
+                  <p className="trip-draft-preview-eyebrow">Photos and videos</p>
+                  <div className="trip-draft-preview-media">
+                    {media.slice(0, 6).map((item) => (
+                      <figure key={item.id}>
+                        <MediaPreview item={item} fallback="" alt={item.name} sizes="240px" />
+                        {item.kind === "video" ? <Play aria-hidden="true" size={22} /> : null}
+                      </figure>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+            </div>
+
+            <aside>
+              <section className="trip-draft-preview-section">
+                <p className="trip-draft-preview-eyebrow">Quick facts</p>
+                <dl>
+                  <div><dt>Destination</dt><dd>{destination || "Not added"}</dd></div>
+                  <div><dt>Duration</dt><dd>{duration || "Not added"}</dd></div>
+                  <div><dt>Trip group</dt><dd>{tripGroup || "Not added"}</dd></div>
+                  {styles.length ? <div><dt>Style</dt><dd>{styles.join(", ")}</dd></div> : null}
+                </dl>
+              </section>
+              {budgetLabel ? (
+                <section className="trip-draft-preview-section">
+                  <p className="trip-draft-preview-eyebrow">Budget per person</p>
+                  <strong className="trip-draft-preview-budget">{budgetLabel}</strong>
+                  {categoryRows.length ? (
+                    <dl className="trip-draft-preview-breakdown">
+                      {categoryRows.map(([label, value]) => (
+                        <div key={label}><dt>{label}</dt><dd>{formatMoney(value)}</dd></div>
+                      ))}
+                    </dl>
+                  ) : null}
+                </section>
+              ) : null}
+            </aside>
+          </div>
+
+          {!summary.trim() && !completedDays.length && !media.length ? (
+            <div className="trip-draft-preview-empty">
+              <Sparkles aria-hidden="true" size={22} />
+              <strong>Your journey is taking shape</strong>
+              <p>Add your story, itinerary, or media and it will appear here instantly.</p>
+            </div>
+          ) : null}
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function getTripDuration(startDate: string, endDate: string) {
   if (!startDate || !endDate) return "";
   const start = new Date(startDate + "T00:00:00");
@@ -827,6 +1187,10 @@ function getTripDuration(startDate: string, endDate: string) {
 
 function numericOnly(value: string) {
   return value.replace(/\D/g, "");
+}
+
+function toApiEnum(value: string) {
+  return value.trim().toUpperCase().replaceAll(" ", "_");
 }
 
 function getTodayInputDate() {
@@ -863,8 +1227,8 @@ function BasicsStep({
   setTitle: (value: string) => void;
   destination: string;
   setDestination: (value: string) => void;
-  selectedDestination?: VerifiedPlace;
-  setSelectedDestination: (value: VerifiedPlace | undefined) => void;
+  selectedDestination?: ApiResolvedLocation;
+  setSelectedDestination: (value: ApiResolvedLocation | undefined) => void;
   startDate: string;
   setStartDate: (value: string) => void;
   endDate: string;
@@ -876,7 +1240,57 @@ function BasicsStep({
   coverPhoto?: MediaItem;
 }) {
   const todayDate = getTodayInputDate();
-  const destinationOptions = searchVerifiedPlaces(destination);
+  const [destinationOptions, setDestinationOptions] = useState<ApiLocationSuggestion[]>([]);
+  const [searchingDestination, setSearchingDestination] = useState(false);
+  const [resolvingDestination, setResolvingDestination] = useState("");
+  const [destinationError, setDestinationError] = useState("");
+
+  useEffect(() => {
+    const query = destination.trim();
+    if (selectedDestination || query.length < 2) {
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => {
+      setSearchingDestination(true);
+      setDestinationError("");
+      searchLocations(query, controller.signal)
+        .then(setDestinationOptions)
+        .catch((error) => {
+          if (error instanceof DOMException && error.name === "AbortError") return;
+          setDestinationOptions([]);
+          setDestinationError(
+            error instanceof Error ? error.message : "Could not search locations."
+          );
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setSearchingDestination(false);
+        });
+    }, 350);
+
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [destination, selectedDestination]);
+
+  const chooseDestination = async (suggestion: ApiLocationSuggestion) => {
+    setResolvingDestination(suggestion.providerPlaceId);
+    setDestinationError("");
+    try {
+      const resolved = await resolveLocation(suggestion.providerPlaceId);
+      setSelectedDestination(resolved);
+      setDestination(resolved.displayName);
+      setDestinationOptions([]);
+    } catch (error) {
+      setDestinationError(
+        error instanceof Error ? error.message : "Could not verify that location."
+      );
+    } finally {
+      setResolvingDestination("");
+    }
+  };
   const updateStartDate = (value: string) => {
     const nextDate = clampPastDate(value, todayDate);
     setStartDate(nextDate);
@@ -910,16 +1324,25 @@ function BasicsStep({
             <small>{title.length} / 80</small>
           </span>
         </label>
-        <label>
+        <label className="destination-picker">
           Destination *
           <span className="verified-place-field">
             <input
               value={destination}
               onChange={(event) => {
-                setDestination(event.target.value);
+                const nextDestination = event.target.value;
+                setDestination(nextDestination);
                 setSelectedDestination(undefined);
+                setDestinationOptions([]);
+                setSearchingDestination(nextDestination.trim().length >= 2);
+                setDestinationError("");
               }}
               placeholder="Search and select a real place"
+              autoComplete="off"
+              role="combobox"
+              aria-autocomplete="list"
+              aria-controls="destination-results"
+              aria-expanded={Boolean(destinationOptions.length || searchingDestination || destinationError)}
               aria-required="true"
               aria-invalid={Boolean(destination && !selectedDestination)}
             />
@@ -927,37 +1350,44 @@ function BasicsStep({
           </span>
           <em>
             {selectedDestination
-              ? `Verified coordinates: ${selectedDestination.coordinates.lat.toFixed(4)}, ${selectedDestination.coordinates.lng.toFixed(4)}`
-              : "Select a verified result. Free-typed locations cannot be published."}
+              ? `Verified location • ${selectedDestination.latitude.toFixed(4)}, ${selectedDestination.longitude.toFixed(4)}`
+              : destination.trim().length < 2
+                ? "Type at least 2 characters, then select a verified result."
+                : "Select a result. Free-typed locations cannot be published."}
           </em>
-          {destination && !selectedDestination ? (
-            <div className="verified-place-results">
-              {destinationOptions.length ? (
+          {destination.trim().length >= 2 && !selectedDestination ? (
+            <div className="verified-place-results" id="destination-results" role="listbox">
+              {searchingDestination ? (
+                <p className="location-search-status">Searching locations...</p>
+              ) : destinationError ? (
+                <p className="location-search-error" role="alert">{destinationError}</p>
+              ) : destinationOptions.length ? (
                 destinationOptions.map((place) => (
                   <button
                     type="button"
-                    onClick={() => {
-                      setSelectedDestination(place);
-                      setDestination(place.label);
-                    }}
-                    key={place.id}
+                    role="option"
+                    aria-selected="false"
+                    disabled={Boolean(resolvingDestination)}
+                    onClick={() => void chooseDestination(place)}
+                    key={place.providerPlaceId}
                   >
                     <MapPin aria-hidden="true" size={17} />
                     <span>
-                      <strong>{place.label}</strong>
+                      <strong>{place.displayName}</strong>
                       <small>
-                        {place.coordinates.lat.toFixed(4)},{" "}
-                        {place.coordinates.lng.toFixed(4)}
+                        {resolvingDestination === place.providerPlaceId
+                          ? "Verifying location..."
+                          : `${place.featureType.replaceAll("_", " ")} • ${place.countryCode}`}
                       </small>
                     </span>
                   </button>
                 ))
-              ) : (
+              ) : destination.trim().length >= 2 ? (
                 <p>
-                  No verified place found. Backend map search will handle wider
-                  coverage later.
+                  No matching location found. Try a city, region, country, or full address.
                 </p>
-              )}
+              ) : null}
+              <small className="mapbox-attribution">Powered by Mapbox</small>
             </div>
           ) : null}
         </label>
@@ -1016,7 +1446,7 @@ function BasicsStep({
             {coverPhoto ? (
               <MediaPreview
                 item={coverPhoto}
-                fallback="/images/cta/share-adventure.png"
+                fallback="/brand/aftertrip-mark.svg"
                 alt="Cover preview"
                 sizes="360px"
               />
@@ -1039,7 +1469,7 @@ function BasicsStep({
           </article>
         </div>
       </section>
-      <section className="create-chip-section">
+      <section className="create-chip-section trip-group-section">
         <h2>Trip group *</h2>
         <p>Who did you travel with?</p>
         <div>
@@ -1112,14 +1542,14 @@ function AboutStep({
           Trip summary *
           <textarea
             value={summary}
-            maxLength={300}
+            maxLength={contentLimits.summary}
             onChange={(event) => setSummary(event.target.value)}
             placeholder="Share a short intro about your trip..."
             aria-required="true"
           />
-          <small>{summary.length} / 300</small>
+          <small>{summary.length} / {contentLimits.summary}</small>
         </label>
-        <div className="create-chip-section">
+        <div className="create-chip-section trip-style-section">
           <h3>Trip style *</h3>
           <p>What kind of experience was this?</p>
           <div>
@@ -1131,6 +1561,7 @@ function AboutStep({
                 }
                 key={label}
                 onClick={() => toggle(label)}
+                aria-pressed={selectedTripStyles.has(label)}
               >
                 <Sparkles aria-hidden="true" size={17} />
                 {label}
@@ -1143,6 +1574,7 @@ function AboutStep({
           <div>
             <input
               value={highlightInput}
+              maxLength={contentLimits.highlight}
               onChange={(event) => setHighlightInput(event.target.value)}
               placeholder="e.g. Sunrise at Tiger's Nest"
             />
@@ -1176,8 +1608,9 @@ function AboutStep({
             value={goodToKnow}
             onChange={(event) => setGoodToKnow(event.target.value)}
             placeholder="Best season, permits, local tips..."
-            maxLength={300}
+            maxLength={contentLimits.goodToKnow}
           />
+          <small>{goodToKnow.length} / {contentLimits.goodToKnow}</small>
         </section>
         <section className="media-upload-panel">
           <h2>Share photos & videos (optional)</h2>
@@ -1206,7 +1639,7 @@ function AboutStep({
                 >
                   <MediaPreview
                     item={item}
-                    fallback="/images/cta/share-adventure.png"
+                    fallback="/brand/aftertrip-mark.svg"
                     alt={item.name}
                     sizes="90px"
                   />
@@ -1278,7 +1711,7 @@ function ItineraryStep({
                     updateDay(day.id, "headline", event.target.value)
                   }
                   placeholder="e.g. Shillong to Cherrapunji"
-                  maxLength={80}
+                  maxLength={contentLimits.itineraryHeadline}
                 />
               </label>
               <label>
@@ -1289,9 +1722,11 @@ function ItineraryStep({
                     updateDay(day.id, "description", event.target.value)
                   }
                   placeholder="What happened this day? Add the route, moments, tips, or places you loved."
-                  maxLength={240}
+                  maxLength={contentLimits.itineraryDescription}
                 />
-                <small>{day.description.length} / 240</small>
+                <small>
+                  {day.description.length} / {contentLimits.itineraryDescription}
+                </small>
               </label>
             </div>
             {days.length > 1 ? (
@@ -1524,7 +1959,7 @@ function ReviewStep({
       <article className="trip-preview-card">
         <MediaPreview
           item={coverPhoto}
-          fallback="/images/cta/share-adventure.png"
+          fallback="/images/hero/mountain-lake-traveler.png"
           alt="Trip preview"
           sizes="700px"
         />

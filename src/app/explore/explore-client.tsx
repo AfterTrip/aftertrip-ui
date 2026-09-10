@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { type CSSProperties, useMemo, useState } from "react";
+import { type CSSProperties, useEffect, useState } from "react";
 import {
   ArrowRight,
   ChevronDown,
@@ -11,7 +11,6 @@ import {
   Grid2X2,
   Heart,
   List,
-  Map,
   RotateCcw,
   Search,
   SlidersHorizontal,
@@ -21,12 +20,20 @@ import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
 import {
-  exploreCategories,
-  exploreTrips,
-  type ExploreTrip,
-  type TripGroup,
-  type TripStyle
-} from "@/data/explore-trips";
+  exploreCategories
+} from "@/data/explore-categories";
+import type { ExploreTrip, TripGroup, TripStyle } from "@/types/explore-trip";
+import {
+  getProfiles,
+  getTripEngagement,
+  searchTrips,
+  type ApiDiscoveryTrip,
+  type ApiTripEngagement,
+  type TripGroup as ApiTripGroup,
+  type TripSearch,
+  type TripStyle as ApiTripStyle
+} from "@/lib/aftertrip-api";
+import { discoveryTripToExploreTrip } from "@/lib/api-adapters";
 
 const durationOptions = [
   "Any",
@@ -85,18 +92,47 @@ const budgetCurrencies = {
 } as const;
 
 type BudgetCurrency = keyof typeof budgetCurrencies;
+type ExploreSort = "Newest" | "Popular" | "Oldest";
 
-function tripDays(trip: ExploreTrip) {
-  return Number(trip.duration.replace(/[^0-9]/g, ""));
+const sortOptions: ExploreSort[] = ["Newest", "Popular", "Oldest"];
+
+const toApiEnum = (value: string) =>
+  value.trim().toUpperCase().replaceAll(" ", "_");
+
+function durationBounds(duration: string) {
+  if (duration === "1-3 days") return { minDurationDays: 1, maxDurationDays: 3 };
+  if (duration === "4-7 days") return { minDurationDays: 4, maxDurationDays: 7 };
+  if (duration === "8-14 days") return { minDurationDays: 8, maxDurationDays: 14 };
+  if (duration === "15+ days") return { minDurationDays: 15 };
+  return {};
 }
 
-function matchesDuration(trip: ExploreTrip, duration: string) {
-  const days = tripDays(trip);
-  if (duration === "1-3 days") return days <= 3;
-  if (duration === "4-7 days") return days >= 4 && days <= 7;
-  if (duration === "8-14 days") return days >= 8 && days <= 14;
-  if (duration === "15+ days") return days >= 15;
-  return true;
+function batches<T>(items: T[], size: number) {
+  return Array.from({ length: Math.ceil(items.length / size) }, (_, index) =>
+    items.slice(index * size, (index + 1) * size)
+  );
+}
+
+async function loadTripPool(
+  search: TripSearch,
+  sort: ExploreSort,
+  visibleCount: number
+) {
+  const apiSort = sort === "Oldest" ? "OLDEST" : "NEWEST";
+  const first = await searchTrips({ ...search, sort: apiSort, page: 0, size: 50 });
+  const pagesNeeded =
+    sort === "Popular"
+      ? first.totalPages
+      : Math.min(first.totalPages, Math.ceil(visibleCount / 50));
+  const remaining = await Promise.all(
+    Array.from({ length: Math.max(0, pagesNeeded - 1) }, (_, index) =>
+      searchTrips({ ...search, sort: apiSort, page: index + 1, size: 50 })
+    )
+  );
+  return {
+    content: [first, ...remaining].flatMap((page) => page.content),
+    totalElements: first.totalElements
+  };
 }
 
 function ExploreTripCard({ trip }: { trip: ExploreTrip }) {
@@ -135,6 +171,7 @@ function ExploreTripCard({ trip }: { trip: ExploreTrip }) {
             <Avatar
               initials={trip.initials}
               tone={trip.avatarTone}
+              src={trip.authorAvatarUrl}
               label={trip.author + " avatar"}
             />
             By {trip.author}
@@ -150,7 +187,8 @@ function ExploreTripCard({ trip }: { trip: ExploreTrip }) {
         <div className="mobile-budget-row">
           <span>{trip.group}</span>
           <i />
-          {trip.budgetLabel}
+          <strong>{trip.price}</strong>
+          <small>{trip.budgetLabel}</small>
         </div>
       </div>
     </article>
@@ -169,13 +207,16 @@ export function ExploreClient({
   const [selectedStyles, setSelectedStyles] = useState<TripStyle[]>([]);
   const [budgetCurrency, setBudgetCurrency] = useState<BudgetCurrency>("INR");
   const [budget, setBudget] = useState<number>(budgetCurrencies.INR.max);
-  const [sortBy, setSortBy] = useState("Newest");
-  const [viewMode, setViewMode] = useState<"grid" | "list" | "map">("grid");
+  const [sortBy, setSortBy] = useState<ExploreSort>("Newest");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [visibleCount, setVisibleCount] = useState(6);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [trips, setTrips] = useState<ExploreTrip[]>([]);
+  const [totalTrips, setTotalTrips] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
 
   const budgetConfig = budgetCurrencies[budgetCurrency];
-  const budgetLimitUsd = budgetConfig.toUsd(budget);
   const budgetProgress =
     ((budget - budgetConfig.min) / (budgetConfig.max - budgetConfig.min)) * 100;
   const budgetRangeStyle = {
@@ -214,57 +255,94 @@ export function ExploreClient({
     setVisibleCount(6);
   };
 
-  const filteredTrips = useMemo(() => {
+  useEffect(() => {
+    let active = true;
+    const timer = window.setTimeout(() => {
     const activeCategoryConfig = exploreCategories.find(
       (category) => category.label === activeCategory
     );
-    const normalizedQuery = query.trim().toLowerCase();
-    const results = exploreTrips.filter((trip) => {
-      const matchesQuery =
-        !normalizedQuery ||
-        [
-          trip.title,
-          trip.country,
-          trip.place,
-          trip.author,
-          trip.group,
-          ...trip.styles
-        ].some((value) => value.toLowerCase().includes(normalizedQuery));
-      const matchesCategory =
-        !activeCategoryConfig?.style ||
-        trip.styles.includes(activeCategoryConfig.style);
-      const matchesBudget = trip.budgetAmount <= budgetLimitUsd;
-      const matchesDurationFilter = matchesDuration(trip, duration);
-      const matchesTripGroup =
-        selectedGroups.length === 0 || selectedGroups.includes(trip.group);
-      const matchesStyle =
-        selectedStyles.length === 0 ||
-        selectedStyles.some((style) => trip.styles.includes(style));
-      return (
-        matchesQuery &&
-        matchesCategory &&
-        matchesBudget &&
-        matchesDurationFilter &&
-        matchesTripGroup &&
-        matchesStyle
-      );
-    });
+      const requestedStyles = [
+        ...selectedStyles,
+        ...(activeCategoryConfig?.style ? [activeCategoryConfig.style] : [])
+      ];
+      setLoading(true);
+      setLoadError("");
+      const filters: TripSearch = {
+        q: query.trim() || undefined,
+        tripGroups: selectedGroups.map(toApiEnum) as ApiTripGroup[],
+        styles: [...new Set(requestedStyles)].map(toApiEnum) as ApiTripStyle[],
+        ...durationBounds(duration),
+        budgetCurrency,
+        maxBudget: budget < budgetConfig.max ? budget : undefined
+      };
+      loadTripPool(filters, sortBy, visibleCount)
+        .then(async (page) => {
+          const tripIds = page.content.map((trip) => trip.tripId);
+          const ownerIds = [...new Set(page.content.map((trip) => trip.ownerUserId))];
+          const [profileBatches, engagementBatches] = await Promise.all([
+            Promise.all(batches(ownerIds, 50).map((ids) => getProfiles(ids))),
+            Promise.all(batches(tripIds, 50).map((ids) => getTripEngagement(ids)))
+          ]);
+          if (!active) return;
+          const profiles = profileBatches.flat();
+          const engagement = engagementBatches.flat();
+          const engagementFor = (trip: ApiDiscoveryTrip): ApiTripEngagement | undefined =>
+            engagement.find((item) => item.tripId === trip.tripId);
+          const ordered =
+            sortBy === "Popular"
+              ? [...page.content].sort((left, right) => {
+                  const leftMetrics = engagementFor(left);
+                  const rightMetrics = engagementFor(right);
+                  return (
+                    (rightMetrics?.likes ?? 0) - (leftMetrics?.likes ?? 0) ||
+                    (rightMetrics?.views ?? 0) - (leftMetrics?.views ?? 0) ||
+                    new Date(right.publishedAt).getTime() -
+                      new Date(left.publishedAt).getTime()
+                  );
+                })
+              : page.content;
+          setTrips(
+            ordered.slice(0, visibleCount).map((trip) =>
+              discoveryTripToExploreTrip(
+                trip,
+                profiles.find((profile) => profile.userId === trip.ownerUserId),
+                engagementFor(trip)
+              )
+            )
+          );
+          setTotalTrips(page.totalElements);
+        })
+        .catch(() => {
+          if (!active) return;
+          setTrips([]);
+          setTotalTrips(0);
+          setLoadError(
+            "Trips could not load right now. Please try again shortly."
+          );
+        })
+        .finally(() => {
+          if (active) setLoading(false);
+        });
+    }, 250);
 
-    return [...results].sort((a, b) => {
-      if (sortBy === "Shortest") return tripDays(a) - tripDays(b);
-      return exploreTrips.indexOf(a) - exploreTrips.indexOf(b);
-    });
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
   }, [
     activeCategory,
-    budgetLimitUsd,
+    budget,
+    budgetConfig.max,
+    budgetCurrency,
     duration,
     query,
     selectedGroups,
     selectedStyles,
-    sortBy
+    sortBy,
+    visibleCount
   ]);
 
-  const visibleTrips = filteredTrips.slice(0, visibleCount);
+  const visibleTrips = trips;
   const mobileFilterCount = [
     duration !== "Any",
     budget < budgetConfig.max,
@@ -320,6 +398,7 @@ export function ExploreClient({
             role="search"
             action="/explore"
             method="get"
+            onSubmit={(event) => event.preventDefault()}
           >
             <label className="explore-search-input" htmlFor="explore-query">
               <Search aria-hidden="true" size={22} />
@@ -335,72 +414,32 @@ export function ExploreClient({
                 placeholder="Where do you want to go?"
               />
             </label>
-            <Button type="submit">Explore</Button>
-          </form>
-        </div>
-      </section>
-
-      <section
-        className="mobile-explore-hero"
-        aria-labelledby="mobile-explore-title"
-      >
-        <Image
-          src="/images/trips/switzerland.png"
-          alt="Pale mountain landscape"
-          fill
-          priority
-          sizes="100vw"
-          className="mobile-explore-bg"
-        />
-        <div className="container mobile-explore-inner">
-          <h1 id="mobile-explore-title">Explore Trips</h1>
-          <p>
-            Discover real travel stories from thousands of travelers and plan
-            your next unforgettable adventure.
-          </p>
-          <form
-            className="mobile-explore-search"
-            role="search"
-            action="/explore"
-            method="get"
-          >
-            <label htmlFor="mobile-explore-query">
-              <Search aria-hidden="true" size={28} />
-              <span className="sr-only">Search destination</span>
-              <input
-                id="mobile-explore-query"
-                name="destination"
-                value={query}
-                onChange={(event) => {
-                  setQuery(event.target.value);
-                  setVisibleCount(6);
-                }}
-                placeholder="Where do you want to go?"
+            <Button type="submit" aria-label="Search trips">
+              <Search
+                className="explore-search-button-icon"
+                aria-hidden="true"
+                size={20}
               />
-            </label>
+              <span>Explore</span>
+            </Button>
           </form>
           <div className="mobile-sort-bar">
-            <button
-              type="button"
-              onClick={() => {
-                setSortBy(sortBy === "Newest" ? "Shortest" : "Newest");
-                setVisibleCount(6);
-              }}
-            >
-              <strong>Sort by:</strong> {sortBy}{" "}
+            <label className="mobile-sort-select">
+              <strong>Sort by:</strong>
+              <select
+                value={sortBy}
+                onChange={(event) => {
+                  setSortBy(event.target.value as ExploreSort);
+                  setVisibleCount(6);
+                }}
+                aria-label="Sort trips"
+              >
+                {sortOptions.map((option) => (
+                  <option key={option}>{option}</option>
+                ))}
+              </select>
               <ChevronDown aria-hidden="true" size={16} />
-            </button>
-            <button
-              className={viewMode === "map" ? "active" : undefined}
-              type="button"
-              aria-pressed={viewMode === "map"}
-              onClick={() =>
-                setViewMode((mode) => (mode === "map" ? "grid" : "map"))
-              }
-            >
-              <Map aria-hidden="true" size={24} />
-              Map view
-            </button>
+            </label>
             <button
               className={mobileFilterCount > 0 ? "active" : undefined}
               type="button"
@@ -606,20 +645,21 @@ export function ExploreClient({
             </IconButton>
           </div>
           <div className="results-toolbar">
-            <h2 id="trip-results-title">{filteredTrips.length} trips found</h2>
+            <h2 id="trip-results-title">{totalTrips} trips found</h2>
             <div className="desktop-result-actions">
               <label>
                 Sort by:
                 <select
                   value={sortBy}
                   onChange={(event) => {
-                    setSortBy(event.target.value);
+                    setSortBy(event.target.value as ExploreSort);
                     setVisibleCount(6);
                   }}
                   aria-label="Sort trips"
                 >
-                  <option>Newest</option>
-                  <option>Shortest</option>
+                  {sortOptions.map((option) => (
+                    <option key={option}>{option}</option>
+                  ))}
                 </select>
               </label>
               <IconButton
@@ -647,25 +687,13 @@ export function ExploreClient({
                 : "explore-trip-grid"
             }
           >
-            {viewMode === "map" ? (
-              <div className="mobile-map-preview" aria-label="Trip map preview">
-                {visibleTrips.slice(0, 5).map((trip, index) => (
-                  <button
-                    type="button"
-                    style={{
-                      left: 18 + index * 16 + "%",
-                      top: 26 + (index % 3) * 18 + "%"
-                    }}
-                    key={trip.title}
-                  >
-                    {trip.country}
-                  </button>
-                ))}
-              </div>
-            ) : null}
-            {visibleTrips.length > 0 ? (
+            {loading && visibleTrips.length === 0 ? (
+              <p className="empty-results">Loading real journeys...</p>
+            ) : loadError ? (
+              <p className="empty-results" role="alert">{loadError}</p>
+            ) : visibleTrips.length > 0 ? (
               visibleTrips.map((trip) => (
-                <ExploreTripCard trip={trip} key={trip.title} />
+                <ExploreTripCard trip={trip} key={trip.slug} />
               ))
             ) : (
               <p className="empty-results">
@@ -674,7 +702,7 @@ export function ExploreClient({
               </p>
             )}
           </div>
-          {visibleCount < filteredTrips.length ? (
+          {visibleCount < totalTrips ? (
             <Button
               variant="secondary"
               className="load-more-trips"
@@ -711,7 +739,7 @@ export function ExploreClient({
         <div className="mobile-filter-header">
           <div>
             <strong>Filters</strong>
-            <span>{filteredTrips.length} trips match</span>
+            <span>{totalTrips} trips match</span>
           </div>
           <button
             type="button"

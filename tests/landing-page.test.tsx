@@ -44,6 +44,10 @@ vi.mock("next/link", () => ({
   )
 }));
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn() })
+}));
+
 describe("AfterTrip landing page", () => {
   it("renders the complete landing page content with semantic landmarks", () => {
     render(<Home />);
@@ -55,10 +59,20 @@ describe("AfterTrip landing page", () => {
       })
     ).toBeInTheDocument();
     expect(screen.getByRole("search")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Featured Trips" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Popular Destinations" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "How AfterTrip Works" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Loved by Travelers" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /Ready to share/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Featured Trips" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Popular Destinations" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "How AfterTrip Works" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Community Reviews" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /Ready to share/i })
+    ).toBeInTheDocument();
   });
 });

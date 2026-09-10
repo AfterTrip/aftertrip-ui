@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef } from "react";
 type ProfileMapPlace = {
   label: string;
   count: number;
+  coverUrl: string;
   x: number;
   y: number;
   coordinates: {
@@ -75,8 +76,14 @@ export function PublicProfileMap({ places }: { places: ProfileMapPlace[] }) {
       const markers = places.map((place) => {
         const element = document.createElement("button");
         element.type = "button";
-        element.className = "profile-mapbox-marker";
-        element.textContent = String(place.count);
+        element.className = place.coverUrl
+          ? "profile-mapbox-marker has-cover"
+          : "profile-mapbox-marker";
+        if (place.coverUrl) {
+          element.style.backgroundImage = `url(${place.coverUrl})`;
+        } else {
+          element.textContent = String(place.count);
+        }
         element.setAttribute(
           "aria-label",
           `${place.label}, ${place.count} trips`
@@ -122,13 +129,17 @@ export function PublicProfileMap({ places }: { places: ProfileMapPlace[] }) {
           <Map aria-hidden="true" size={30} />
           {places.map((place) => (
             <span
+              className={place.coverUrl ? "has-cover" : undefined}
               style={{
                 left: `${place.x}%`,
-                top: `${place.y}%`
+                top: `${place.y}%`,
+                backgroundImage: place.coverUrl
+                  ? `url(${place.coverUrl})`
+                  : undefined
               }}
               key={place.label}
             >
-              {place.count}
+              {place.coverUrl ? null : place.count}
               <small>{place.label}</small>
             </span>
           ))}

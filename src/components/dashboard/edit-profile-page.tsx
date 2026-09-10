@@ -3,19 +3,25 @@
 import Image from "next/image";
 import Link from "next/link";
 import {
-  Bell,
   Bookmark,
-  Briefcase,
-  ChevronDown,
   Home,
+  ImageUp,
   Map,
-  Menu,
   Pencil,
   Plus,
-  Search,
   User
 } from "lucide-react";
-import { useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
+import {
+  getOwnProfile,
+  publicMediaUrl,
+  updateOwnProfile,
+  uploadMedia
+} from "@/lib/aftertrip-api";
+import { useAuthenticatedPage } from "@/lib/use-authenticated-page";
+import { AccountMenu } from "@/components/layout/account-menu";
+import { DashboardBottomNavigation } from "@/components/dashboard/dashboard-bottom-navigation";
+import { ThemeToggle } from "@/components/theme/theme-toggle";
 
 const sidebarItems = [
   { label: "My Trips", href: "/dashboard", icon: Home },
@@ -29,28 +35,84 @@ const sidebarItems = [
   }
 ];
 
-const profilePhoto = "/images/hero/mountain-lake-traveler.png";
-
 export function EditProfilePage() {
-  const [name, setName] = useState("Sreehari P");
-  const [location, setLocation] = useState("Kochi, Kerala, India");
-  const [tagline, setTagline] = useState(
-    "Exploring the world, one journey at a time."
-  );
+  const authenticated = useAuthenticatedPage();
+  const [name, setName] = useState("");
+  const [location, setLocation] = useState("");
+  const [tagline, setTagline] = useState("");
+  const [avatarMediaId, setAvatarMediaId] = useState<string | null>(null);
+  const [profilePhoto, setProfilePhoto] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    if (!authenticated) return;
+    getOwnProfile()
+      .then((profile) => {
+        setName(profile.displayName);
+        setLocation(profile.location ?? "");
+        setTagline(profile.tagline ?? "");
+        setAvatarMediaId(profile.avatarMediaId ?? null);
+        setProfilePhoto(
+          publicMediaUrl(profile.avatarMediaId) ??
+            profile.avatarUrl ??
+            ""
+        );
+      })
+      .catch((error) => setMessage(error instanceof Error ? error.message : "Could not load your profile."));
+  }, [authenticated]);
+
+  const changePhoto = async (file?: File) => {
+    if (!file) return;
+    setMessage("");
+    setUploadingPhoto(true);
+    try {
+      const media = await uploadMedia(file, "PROFILE_AVATAR");
+      setAvatarMediaId(media.id);
+      setProfilePhoto(URL.createObjectURL(file));
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not upload that photo.");
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const saveProfile = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!name.trim()) {
+      setMessage("Name is required.");
+      return;
+    }
+    setSaving(true);
+    setMessage("");
+    try {
+      await updateOwnProfile({
+        displayName: name.trim(),
+        location: location.trim() || null,
+        tagline: tagline.trim() || null,
+        avatarMediaId
+      });
+      setMessage("Profile saved.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not save your profile.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <main id="main-content" className="dashboard-page dashboard-edit-page">
       <header className="dashboard-topbar" aria-label="Dashboard header">
         <Link className="dashboard-brand" href="/" aria-label="AfterTrip home">
           <Image
-            src="/brand/aftertrip-mark.svg"
+            src="/brand/aftertrip-logo-green.png"
             alt=""
-            width={38}
-            height={38}
+            width={160}
+            height={53}
             priority
             aria-hidden="true"
           />
-          <span>AfterTrip</span>
         </Link>
         <nav
           className="dashboard-desktop-nav"
@@ -61,6 +123,7 @@ export function EditProfilePage() {
           <Link href="/#how-it-works">How it works</Link>
         </nav>
         <div className="dashboard-top-actions">
+          <ThemeToggle />
           <Link
             className="dashboard-create-button"
             href="/dashboard/create-trip"
@@ -68,40 +131,10 @@ export function EditProfilePage() {
             <Plus aria-hidden="true" size={18} />
             Publish Trip
           </Link>
-          <button
-            className="dashboard-icon-button"
-            type="button"
-            aria-label="Notifications"
-          >
-            <Bell aria-hidden="true" size={22} />
-          </button>
-          <Link
-            className="dashboard-profile-button"
-            href="/dashboard/edit-profile"
-            aria-label="Open edit profile"
-          >
-            <span
-              style={{ backgroundImage: "url(" + profilePhoto + ")" }}
-              aria-hidden="true"
-            />
-            <ChevronDown aria-hidden="true" size={18} />
-          </Link>
+          <AccountMenu variant="dashboard" />
         </div>
         <div className="dashboard-mobile-actions">
-          <button
-            className="dashboard-icon-button"
-            type="button"
-            aria-label="Notifications"
-          >
-            <Bell aria-hidden="true" size={21} />
-          </button>
-          <button
-            className="dashboard-icon-button"
-            type="button"
-            aria-label="Open menu"
-          >
-            <Menu aria-hidden="true" size={25} />
-          </button>
+          <ThemeToggle />
         </div>
       </header>
 
@@ -128,14 +161,36 @@ export function EditProfilePage() {
           className="dashboard-content profile-edit-content"
           aria-labelledby="profile-edit-title"
         >
-          <form className="profile-edit-card" aria-label="Edit profile form">
-            <div className="profile-edit-preview" aria-hidden="true">
-              <span style={{ backgroundImage: "url(" + profilePhoto + ")" }} />
+          <form className="profile-edit-card" aria-label="Edit profile form" onSubmit={saveProfile}>
+            <div className="profile-edit-preview">
+              <span
+                className={profilePhoto ? "has-photo" : "profile-initials"}
+                style={profilePhoto ? { backgroundImage: "url(" + profilePhoto + ")" } : undefined}
+              >
+                {profilePhoto ? null : (name || "Traveler").slice(0, 1).toUpperCase()}
+              </span>
               <div>
                 <strong>{name || "Traveler"}</strong>
                 {location ? <small>{location}</small> : null}
                 {tagline ? <p>{tagline}</p> : null}
               </div>
+              <label className="profile-photo-control">
+                <ImageUp aria-hidden="true" size={19} />
+                <span>
+                  <strong>{uploadingPhoto ? "Uploading..." : "Change photo"}</strong>
+                  <small>JPG, PNG or WebP</small>
+                </span>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  disabled={uploadingPhoto}
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    event.target.value = "";
+                    void changePhoto(file);
+                  }}
+                />
+              </label>
             </div>
             <label>
               <span>Name</span>
@@ -168,40 +223,17 @@ export function EditProfilePage() {
             </label>
             <div className="profile-edit-actions">
               <Link href="/dashboard">Cancel</Link>
-              <button type="button">
+              <button type="submit" disabled={saving}>
                 <Pencil aria-hidden="true" size={18} />
-                Save changes
+                {saving ? "Saving..." : "Save changes"}
               </button>
             </div>
+            {message ? <p className="profile-edit-message" role="status">{message}</p> : null}
           </form>
         </section>
       </div>
 
-      <nav
-        className="dashboard-bottom-nav"
-        aria-label="Mobile dashboard navigation"
-      >
-        <Link href="/explore">
-          <Search aria-hidden="true" size={22} />
-          Explore
-        </Link>
-        <Link href="/dashboard/bookmarks">
-          <Bookmark aria-hidden="true" size={22} />
-          Bookmarks
-        </Link>
-        <Link className="create" href="/dashboard/create-trip">
-          <Plus aria-hidden="true" size={28} />
-          <span>Publish Trip</span>
-        </Link>
-        <Link href="/dashboard">
-          <Briefcase aria-hidden="true" size={22} />
-          My Trips
-        </Link>
-        <Link className="active" href="/dashboard/edit-profile">
-          <User aria-hidden="true" size={22} />
-          Profile
-        </Link>
-      </nav>
+      <DashboardBottomNavigation />
     </main>
   );
 }

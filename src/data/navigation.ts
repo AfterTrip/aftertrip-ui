@@ -22,7 +22,10 @@ export const footerColumns = [
   {
     title: "Support",
     links: [
-      { label: "hello@aftertrip.com", href: "mailto:hello@aftertrip.com" },
+      {
+        label: "support@after-trip.com",
+        href: "mailto:support@after-trip.com"
+      },
       { label: "Terms of Use", href: "/legal#terms" },
       { label: "Privacy Policy", href: "/legal#privacy" }
     ]

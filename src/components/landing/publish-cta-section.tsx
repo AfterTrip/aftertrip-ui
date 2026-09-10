@@ -5,7 +5,11 @@ import { Button } from "@/components/ui/button";
 
 export function PublishCtaSection() {
   return (
-    <section className="publish-cta-section" id="publish" aria-labelledby="publish-title">
+    <section
+      className="publish-cta-section"
+      id="publish"
+      aria-labelledby="publish-title"
+    >
       <div className="container">
         <div className="publish-card">
           <Image
@@ -19,10 +23,12 @@ export function PublishCtaSection() {
           <div className="publish-content">
             <div>
               <h2 id="publish-title">Ready to share your next adventure?</h2>
-              <p>Join thousands of travelers sharing real journeys every day.</p>
+              <p>
+                Join thousands of travelers sharing real journeys every day.
+              </p>
             </div>
             <Button variant="secondary" size="lg" asChild>
-              <Link href="#">
+              <Link href="/dashboard/create-trip">
                 <Send aria-hidden="true" size={21} />
                 Publish Your Trip
               </Link>

@@ -7,30 +7,70 @@ import {
   Briefcase,
   CalendarDays,
   Eye,
+  Heart,
   MapPin,
-  Share2,
   ShieldCheck,
   Sparkles,
   Users
 } from "lucide-react";
 import { PublicProfileMap } from "@/components/profile/public-profile-map";
-import { getPublicProfile, publicProfiles } from "@/data/public-profiles";
+import { ProfileViewRecorder } from "@/components/profile/profile-view-recorder";
+import { SharePageButton } from "@/components/ui/share-page-button";
+import type { PublicProfile } from "@/types/public-profile";
+import {
+  getPublicProfile as loadPublicProfile,
+  getPublicProfileViews,
+  getPublicTravelFootprint,
+  getTripEngagement,
+  publicMediaUrl
+} from "@/lib/aftertrip-api";
+import { formatCount, titleCaseEnum } from "@/lib/formatters";
+import { SITE_NAME } from "@/lib/constants";
+
+const PUBLIC_PROFILE_COVER = "/images/hero/mountain-lake-traveler.png";
 
 type TravelerProfilePageProps = {
   params: Promise<{ slug: string }>;
 };
 
-export function generateStaticParams() {
-  return publicProfiles.map((profile) => ({ slug: profile.slug }));
-}
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: TravelerProfilePageProps) {
   const { slug } = await params;
-  const profile = getPublicProfile(slug);
+  const profile = await loadPublicProfile(slug).catch(() => null);
+  const description = profile?.tagline ?? "Traveler profile on AfterTrip.";
+  const image = profile ? PUBLIC_PROFILE_COVER : undefined;
 
   return {
-    title: profile ? `${profile.name} | AfterTrip` : "Traveler | AfterTrip",
-    description: profile?.tagline ?? "Traveler profile on AfterTrip."
+    title: profile
+      ? `${profile.displayName} | AfterTrip`
+      : "Traveler | AfterTrip",
+    description,
+    alternates: { canonical: `/travelers/${slug}` },
+    openGraph: {
+      title: profile
+        ? `${profile.displayName} on ${SITE_NAME}`
+        : `Traveler on ${SITE_NAME}`,
+      description,
+      url: `/travelers/${slug}`,
+      type: "profile",
+      images: image
+        ? [
+            {
+              url: image,
+              alt: `${profile?.displayName ?? "Traveler"} on AfterTrip`
+            }
+          ]
+        : []
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: profile
+        ? `${profile.displayName} on ${SITE_NAME}`
+        : `Traveler on ${SITE_NAME}`,
+      description,
+      images: image ? [image] : []
+    }
   };
 }
 
@@ -38,12 +78,100 @@ export default async function TravelerProfilePage({
   params
 }: TravelerProfilePageProps) {
   const { slug } = await params;
-  const profile = getPublicProfile(slug);
+  const apiProfile = await loadPublicProfile(slug).catch(() => null);
 
-  if (!profile) notFound();
+  if (!apiProfile) notFound();
+  const [footprint, views] = await Promise.all([
+    getPublicTravelFootprint(slug),
+    getPublicProfileViews(slug)
+  ]);
+  const engagement = await getTripEngagement(
+    footprint.journeys.map((journey) => journey.tripId)
+  );
+  const destinationCoverUrl = (displayName: string) =>
+    footprint.journeys
+      .filter((journey) => journey.destination === displayName)
+      .map(
+        (journey) => publicMediaUrl(journey.coverMediaId) ?? journey.coverUrl
+      )
+      .find(Boolean) ?? PUBLIC_PROFILE_COVER;
+
+  const profile: PublicProfile = {
+    slug: apiProfile.slug,
+    name: apiProfile.displayName,
+    initials: apiProfile.displayName
+      .split(/\s+/)
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join("")
+      .toUpperCase(),
+    avatarTone: "teal",
+    location: apiProfile.location ?? "Location not shared",
+    tagline: apiProfile.tagline ?? "Real journeys, thoughtfully shared.",
+    coverImage: PUBLIC_PROFILE_COVER,
+    photoImage:
+      publicMediaUrl(apiProfile.avatarMediaId) ??
+      apiProfile.avatarUrl ??
+      "/brand/aftertrip-mark.svg",
+    travelDays: footprint.summary.travelDays,
+    achievements: footprint.summary.achievementsUnlocked,
+    achievementBadges: footprint.achievements,
+    styles: footprint.travelDna.map((item) => ({
+      label: titleCaseEnum(item.key),
+      value: item.percentage
+    })),
+    travelWith: footprint.travelWith.map((item) => ({
+      label: titleCaseEnum(item.key),
+      value: item.percentage
+    })),
+    footprint: footprint.destinations.map((destination, index) => ({
+      label: destination.name,
+      count: destination.trips,
+      coverUrl: destinationCoverUrl(destination.displayName),
+      x: 20 + ((index * 17) % 65),
+      y: 25 + ((index * 13) % 50),
+      coordinates: { lat: destination.latitude, lng: destination.longitude }
+    })),
+    trips: footprint.journeys.map((journey) => {
+      const metrics = engagement.find((item) => item.tripId === journey.tripId);
+      return {
+        slug: journey.slug,
+        title: journey.title,
+        country: journey.destination,
+        place: journey.destination,
+        duration: `${journey.durationDays} days`,
+        group: titleCaseEnum(
+          journey.tripGroup
+        ) as PublicProfile["trips"][number]["group"],
+        styles: journey.styles.map(
+          titleCaseEnum
+        ) as PublicProfile["trips"][number]["styles"],
+        author: apiProfile.displayName,
+        authorSlug: apiProfile.slug,
+        price: "",
+        views: formatCount(metrics?.views ?? 0),
+        likes: formatCount(metrics?.likes ?? 0),
+        budgetAmount: 0,
+        budgetLabel: "",
+        image: {
+          src:
+            publicMediaUrl(journey.coverMediaId) ??
+            journey.coverUrl ??
+            PUBLIC_PROFILE_COVER,
+          alt: `${journey.title} cover photo`
+        },
+        avatarTone: "teal",
+        initials: apiProfile.displayName.slice(0, 2).toUpperCase()
+      };
+    }),
+    tripCount: footprint.summary.trips,
+    views: formatCount(views.views),
+    likes: formatCount(engagement.reduce((sum, item) => sum + item.likes, 0))
+  };
 
   return (
     <main id="main-content" className="public-profile-page">
+      <ProfileViewRecorder slug={slug} />
       <section className="public-profile-hero" aria-labelledby="profile-title">
         <div className="container public-profile-hero-inner">
           <div className="profile-hero-card">
@@ -79,10 +207,11 @@ export default async function TravelerProfilePage({
                 <span>{profile.tagline}</span>
               </div>
             </div>
-            <button className="profile-share-button" type="button">
-              <Share2 aria-hidden="true" size={18} />
-              Share
-            </button>
+            <SharePageButton
+              className="profile-share-button"
+              title={`${profile.name} on AfterTrip`}
+              text={profile.tagline}
+            />
           </div>
           <div className="profile-stat-row" aria-label="Traveler stats">
             <article>
@@ -124,10 +253,6 @@ export default async function TravelerProfilePage({
               <p>Travel Footprint</p>
               <h2>Places they explored</h2>
             </div>
-            <div className="profile-map-tabs" aria-label="Map mode">
-              <span>Places</span>
-              <span>Trips</span>
-            </div>
           </div>
           <PublicProfileMap places={profile.footprint} />
           <div className="profile-place-list" aria-label="Top places">
@@ -154,7 +279,9 @@ export default async function TravelerProfilePage({
                 <div key={style.label}>
                   <span>{style.label}</span>
                   <strong>{style.value}%</strong>
-                  <i style={{ width: `${style.value}%` }} />
+                  <i>
+                    <em style={{ width: `${style.value}%` }} />
+                  </i>
                 </div>
               ))}
             </div>
@@ -182,27 +309,22 @@ export default async function TravelerProfilePage({
             </div>
           </section>
 
-          <section className="profile-achievement-card">
-            <div>
-              <p>Achievements</p>
-              <h2>Milestones unlocked</h2>
-            </div>
-            <div className="profile-achievement-chips">
-              {[
-                "First Journey",
-                "Mountain Explorer",
-                "Nature Lover",
-                "Coast Chaser",
-                "10 Journeys",
-                "Verified Mapper"
-              ].map((badge) => (
-                <span key={badge}>
-                  <Award aria-hidden="true" size={16} />
-                  {badge}
-                </span>
-              ))}
-            </div>
-          </section>
+          {profile.achievementBadges.length ? (
+            <section className="profile-achievement-card">
+              <div>
+                <p>Achievements</p>
+                <h2>Milestones unlocked</h2>
+              </div>
+              <div className="profile-achievement-chips">
+                {profile.achievementBadges.map((badge) => (
+                  <span title={badge.description} key={badge.code}>
+                    <Award aria-hidden="true" size={16} />
+                    {badge.title}
+                  </span>
+                ))}
+              </div>
+            </section>
+          ) : null}
         </aside>
 
         <div className="public-profile-main">
@@ -235,9 +357,15 @@ export default async function TravelerProfilePage({
                 <span className="profile-trip-body">
                   <strong>{trip.title}</strong>
                   <small>{trip.place}</small>
-                  <span>
-                    <Eye aria-hidden="true" size={15} />
-                    {trip.views}
+                  <span className="profile-trip-metrics">
+                    <span>
+                      <Eye aria-hidden="true" size={15} />
+                      {trip.views}
+                    </span>
+                    <span>
+                      <Heart aria-hidden="true" size={15} />
+                      {trip.likes}
+                    </span>
                   </span>
                 </span>
               </Link>
@@ -245,10 +373,10 @@ export default async function TravelerProfilePage({
           </div>
           <div className="profile-follow-card">
             <Image
-              src="/brand/aftertrip-mark.svg"
+              src="/brand/aftertrip-logo-green.png"
               alt=""
-              width={38}
-              height={38}
+              width={132}
+              height={44}
               aria-hidden="true"
             />
             <p>

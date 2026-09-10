@@ -4,7 +4,7 @@ import Image from "next/image";
 import { createPortal } from "react-dom";
 import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
-import type { TripDetail } from "@/data/trip-details";
+import type { TripDetail } from "@/types/trip-detail";
 
 type TripGalleryProps = {
   images: NonNullable<TripDetail["gallery"]>;
@@ -19,6 +19,7 @@ export function TripGallery({ images }: TripGalleryProps) {
   const activeImage = activeIndex === null ? null : images[activeIndex];
   const activeMediaNumber = activeIndex === null ? 0 : activeIndex + 1;
   const activeIsVideo = activeImage ? isVideo(activeImage) : false;
+  const activeMediaLabel = activeIsVideo ? "Video" : "Photo";
 
   useEffect(() => {
     if (activeIndex === null) return;
@@ -55,7 +56,7 @@ export function TripGallery({ images }: TripGalleryProps) {
           type="button"
           onClick={() => setActiveIndex(0)}
         >
-          View all media ({images.length * 24})
+          View all media ({images.length})
         </button>
       </div>
       <div className="trip-gallery-strip">
@@ -108,7 +109,8 @@ export function TripGallery({ images }: TripGalleryProps) {
                     <span>
                       {activeMediaNumber} / {images.length}
                     </span>
-                    {activeImage.alt}
+                    <b aria-hidden="true">·</b>
+                    {activeMediaLabel}
                   </p>
                   <button
                     className="gallery-close"

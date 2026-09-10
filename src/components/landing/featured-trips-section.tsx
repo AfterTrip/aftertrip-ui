@@ -1,28 +1,57 @@
 "use client";
 
-import Link from "next/link";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowRight } from "lucide-react";
-import { featuredTrips } from "@/data/featured-trips";
 import { SectionHeading } from "@/components/ui/section-heading";
 import { IconButton } from "@/components/ui/icon-button";
 import { TripCard } from "./trip-card";
+import {
+  getProfiles,
+  getTripEngagement,
+  searchTrips
+} from "@/lib/aftertrip-api";
+import { discoveryTripToLandingTrip } from "@/lib/api-adapters";
+import { useCarouselPagination } from "@/lib/use-carousel-pagination";
+import type { Trip } from "@/types/trip";
 
 export function FeaturedTripsSection() {
   const rowRef = useRef<HTMLDivElement>(null);
-  const [activeIndex, setActiveIndex] = useState(0);
+  const [trips, setTrips] = useState<Trip[]>([]);
+  const { activePage, pageCount, scrollToPage } = useCarouselPagination(
+    rowRef,
+    trips.length
+  );
 
-  const scrollToIndex = (index: number) => {
-    const nextIndex = (index + featuredTrips.length) % featuredTrips.length;
-    const row = rowRef.current;
-    const card = row?.children.item(nextIndex) as HTMLElement | null;
-    card?.scrollIntoView({
-      behavior: "smooth",
-      block: "nearest",
-      inline: "start"
-    });
-    setActiveIndex(nextIndex);
-  };
+  useEffect(() => {
+    let active = true;
+    searchTrips({ size: 8 })
+      .then(async (page) => {
+        if (!page.content.length) {
+          if (active) setTrips([]);
+          return;
+        }
+        const [profiles, engagement] = await Promise.all([
+          getProfiles([
+            ...new Set(page.content.map((trip) => trip.ownerUserId))
+          ]),
+          getTripEngagement(page.content.map((trip) => trip.tripId))
+        ]);
+        if (!active) return;
+        setTrips(
+          page.content.map((trip) =>
+            discoveryTripToLandingTrip(
+              trip,
+              profiles.find((profile) => profile.userId === trip.ownerUserId),
+              engagement.find((item) => item.tripId === trip.tripId)
+            )
+          )
+        );
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, []);
 
   return (
     <section
@@ -37,36 +66,44 @@ export function FeaturedTripsSection() {
           copy="Handpicked travel stories to inspire your next adventure."
           link={{ label: "View all trips", href: "/explore" }}
         />
-        <div className="carousel-shell">
-          <div className="trip-grid snap-row" ref={rowRef}>
-            {featuredTrips.map((trip, index) => (
-              <TripCard key={trip.title} trip={trip} index={index} />
-            ))}
-          </div>
-          <IconButton
-            label="Next featured trip"
-            className="carousel-next"
-            onClick={() => scrollToIndex(activeIndex + 1)}
-          >
-            <ArrowRight aria-hidden="true" size={22} />
-          </IconButton>
-        </div>
-        <div className="pagination-dots" aria-label="Featured trip pages">
-          {featuredTrips.slice(0, 3).map((trip, index) => (
-            <button
-              type="button"
-              className={activeIndex === index ? "active" : undefined}
-              aria-label={"Show " + trip.title}
-              aria-current={activeIndex === index ? "true" : undefined}
-              onClick={() => scrollToIndex(index)}
-              key={trip.title}
-            />
-          ))}
-        </div>
-        <Link className="mobile-section-link" href="/explore">
-          View all
-          <ArrowRight aria-hidden="true" size={18} />
-        </Link>
+        {trips.length ? (
+          <>
+            <div className="carousel-shell">
+              <div className="trip-grid snap-row" ref={rowRef}>
+                {trips.map((trip) => (
+                  <TripCard key={trip.slug} trip={trip} />
+                ))}
+              </div>
+              {pageCount > 1 ? (
+                <IconButton
+                  label="Next featured trips page"
+                  className="carousel-next"
+                  onClick={() => scrollToPage((activePage + 1) % pageCount)}
+                >
+                  <ArrowRight aria-hidden="true" size={22} />
+                </IconButton>
+              ) : null}
+            </div>
+            {pageCount > 1 ? (
+              <div className="pagination-dots" aria-label="Featured trip pages">
+                {Array.from({ length: pageCount }, (_, index) => (
+                  <button
+                    type="button"
+                    className={activePage === index ? "active" : undefined}
+                    aria-label={`Show featured trips page ${index + 1}`}
+                    aria-current={activePage === index ? "page" : undefined}
+                    onClick={() => scrollToPage(index)}
+                    key={index}
+                  />
+                ))}
+              </div>
+            ) : null}
+          </>
+        ) : (
+          <p className="landing-data-empty">
+            No trips have been published yet.
+          </p>
+        )}
       </div>
     </section>
   );

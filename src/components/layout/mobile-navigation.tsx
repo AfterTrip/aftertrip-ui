@@ -7,9 +7,13 @@ import { Menu, X } from "lucide-react";
 import { navigationItems } from "@/data/navigation";
 import { Button } from "@/components/ui/button";
 import { IconButton } from "@/components/ui/icon-button";
+import { logoutAuthenticationSession } from "@/lib/auth-client";
+import { useAuthenticationSession } from "@/lib/use-authentication-session";
+import { ThemeToggle } from "@/components/theme/theme-toggle";
 
 export function MobileNavigation() {
   const pathname = usePathname();
+  const session = useAuthenticationSession();
 
   const isActive = (href: string) => {
     if (href.includes("#")) return false;
@@ -34,11 +38,14 @@ export function MobileNavigation() {
         >
           <div className="mobile-nav-topline">
             <Dialog.Title>AfterTrip menu</Dialog.Title>
-            <Dialog.Close asChild>
-              <IconButton label="Close menu">
-                <X aria-hidden="true" size={24} />
-              </IconButton>
-            </Dialog.Close>
+            <div>
+              <ThemeToggle />
+              <Dialog.Close asChild>
+                <IconButton label="Close menu">
+                  <X aria-hidden="true" size={24} />
+                </IconButton>
+              </Dialog.Close>
+            </div>
           </div>
           <nav aria-label="Mobile navigation">
             {navigationItems.map((item) => (
@@ -54,13 +61,28 @@ export function MobileNavigation() {
             ))}
           </nav>
           <div className="mobile-nav-actions">
+            {session ? (
+              <>
+                <Dialog.Close asChild>
+                  <Button variant="secondary" asChild>
+                    <Link href="/dashboard/edit-profile">Edit profile</Link>
+                  </Button>
+                </Dialog.Close>
+                <Dialog.Close asChild>
+                  <Button variant="secondary" onClick={() => void logoutAuthenticationSession()}>
+                    Log out
+                  </Button>
+                </Dialog.Close>
+              </>
+            ) : session === null ? (
+              <Dialog.Close asChild>
+                <Button variant="secondary" asChild>
+                  <Link href="/login">Log in</Link>
+                </Button>
+              </Dialog.Close>
+            ) : null}
             <Dialog.Close asChild>
-              <Button variant="secondary" asChild>
-                <Link href="/login">Log in</Link>
-              </Button>
-            </Dialog.Close>
-            <Dialog.Close asChild>
-              <Button asChild>
+              <Button className={session ? "mobile-publish-action-wide" : undefined} asChild>
                 <Link href="/dashboard/create-trip">Publish Trip</Link>
               </Button>
             </Dialog.Close>

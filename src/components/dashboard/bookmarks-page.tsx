@@ -3,22 +3,29 @@
 import Image from "next/image";
 import Link from "next/link";
 import {
-  Bell,
   Bookmark,
-  Briefcase,
-  ChevronDown,
+  BookmarkX,
   Eye,
   Heart,
   Home,
   Map,
-  Menu,
   Plus,
-  Search,
   User
 } from "lucide-react";
-import { exploreTrips } from "@/data/explore-trips";
-
-const profilePhoto = "/images/hero/mountain-lake-traveler.png";
+import { useEffect, useState } from "react";
+import type { ExploreTrip } from "@/types/explore-trip";
+import {
+  getBookmarks,
+  getProfiles,
+  getPublicTripById,
+  getTripEngagement,
+  removeBookmark
+} from "@/lib/aftertrip-api";
+import { apiTripToExploreTrip } from "@/lib/api-adapters";
+import { useAuthenticatedPage } from "@/lib/use-authenticated-page";
+import { AccountMenu } from "@/components/layout/account-menu";
+import { DashboardBottomNavigation } from "@/components/dashboard/dashboard-bottom-navigation";
+import { ThemeToggle } from "@/components/theme/theme-toggle";
 
 const sidebarItems = [
   { label: "My Trips", href: "/dashboard", icon: Home },
@@ -32,22 +39,80 @@ const sidebarItems = [
   { label: "Edit Profile", href: "/dashboard/edit-profile", icon: User }
 ];
 
-const bookmarkedTrips = exploreTrips.slice(0, 6);
-
 export function BookmarksPage() {
+  const authenticated = useAuthenticatedPage();
+  const [bookmarkedTrips, setBookmarkedTrips] = useState<
+    Array<ExploreTrip & { tripId: string }>
+  >([]);
+  const [removingTripId, setRemovingTripId] = useState<string>();
+  const [message, setMessage] = useState("Loading bookmarks...");
+
+  useEffect(() => {
+    if (!authenticated) return;
+    let active = true;
+    getBookmarks()
+      .then(async (page) => {
+        const loaded = await Promise.all(
+          page.content.map(async (bookmark) => {
+            try {
+              return { tripId: bookmark.tripId, trip: await getPublicTripById(bookmark.tripId) };
+            } catch {
+              await removeBookmark(bookmark.tripId).catch(() => undefined);
+              return null;
+            }
+          })
+        );
+        const trips = loaded.filter((item) => item !== null);
+        const [profiles, engagement] = await Promise.all([
+          getProfiles([...new Set(trips.map(({ trip }) => trip.ownerUserId))]),
+          getTripEngagement(trips.map(({ trip }) => trip.id))
+        ]);
+        if (!active) return;
+        setBookmarkedTrips(
+          trips.map(({ tripId, trip }) => ({
+            ...apiTripToExploreTrip(
+                trip,
+                profiles.find((profile) => profile.userId === trip.ownerUserId),
+                engagement.find((item) => item.tripId === trip.id)
+              ),
+            tripId
+          }))
+        );
+        setMessage(trips.length ? "" : "No bookmarked trips yet.");
+      })
+      .catch((error) => {
+        if (active) setMessage(error instanceof Error ? error.message : "Could not load bookmarks.");
+      });
+    return () => {
+      active = false;
+    };
+  }, [authenticated]);
+
+  const undoBookmark = async (tripId: string) => {
+    setRemovingTripId(tripId);
+    try {
+      await removeBookmark(tripId);
+      const remaining = bookmarkedTrips.filter((trip) => trip.tripId !== tripId);
+      setBookmarkedTrips(remaining);
+      if (!remaining.length) setMessage("No bookmarked trips yet.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Could not remove bookmark.");
+    } finally {
+      setRemovingTripId(undefined);
+    }
+  };
   return (
     <main id="main-content" className="dashboard-page">
       <header className="dashboard-topbar" aria-label="Dashboard header">
         <Link className="dashboard-brand" href="/" aria-label="AfterTrip home">
           <Image
-            src="/brand/aftertrip-mark.svg"
+            src="/brand/aftertrip-logo-green.png"
             alt=""
-            width={38}
-            height={38}
+            width={160}
+            height={53}
             priority
             aria-hidden="true"
           />
-          <span>AfterTrip</span>
         </Link>
         <nav
           className="dashboard-desktop-nav"
@@ -58,6 +123,7 @@ export function BookmarksPage() {
           <Link href="/#how-it-works">How it works</Link>
         </nav>
         <div className="dashboard-top-actions">
+          <ThemeToggle />
           <Link
             className="dashboard-create-button"
             href="/dashboard/create-trip"
@@ -65,40 +131,10 @@ export function BookmarksPage() {
             <Plus aria-hidden="true" size={18} />
             Publish Trip
           </Link>
-          <button
-            className="dashboard-icon-button"
-            type="button"
-            aria-label="Notifications"
-          >
-            <Bell aria-hidden="true" size={22} />
-          </button>
-          <Link
-            className="dashboard-profile-button"
-            href="/dashboard/edit-profile"
-            aria-label="Open edit profile"
-          >
-            <span
-              style={{ backgroundImage: "url(" + profilePhoto + ")" }}
-              aria-hidden="true"
-            />
-            <ChevronDown aria-hidden="true" size={18} />
-          </Link>
+          <AccountMenu variant="dashboard" />
         </div>
         <div className="dashboard-mobile-actions">
-          <button
-            className="dashboard-icon-button"
-            type="button"
-            aria-label="Notifications"
-          >
-            <Bell aria-hidden="true" size={21} />
-          </button>
-          <button
-            className="dashboard-icon-button"
-            type="button"
-            aria-label="Open menu"
-          >
-            <Menu aria-hidden="true" size={25} />
-          </button>
+          <ThemeToggle />
         </div>
       </header>
 
@@ -134,13 +170,13 @@ export function BookmarksPage() {
           </div>
 
           <div className="dashboard-trip-grid" aria-label="Bookmarked trips">
+            {message ? <p className="dashboard-api-message" role="status">{message}</p> : null}
             {bookmarkedTrips.map((trip) => (
-              <Link
+              <article
                 className="dashboard-trip-card dashboard-bookmark-card"
-                href={`/trips/${trip.slug}`}
-                key={trip.slug}
+                key={trip.tripId}
               >
-                <span className="dashboard-trip-image">
+                <Link className="dashboard-trip-image" href={`/trips/${trip.slug}`}>
                   <Image
                     src={trip.image.src}
                     alt={trip.image.alt}
@@ -148,13 +184,20 @@ export function BookmarksPage() {
                     sizes="(max-width: 767px) 116px, (max-width: 1199px) 50vw, 360px"
                   />
                   <span>Bookmarked</span>
-                  <span className="dashboard-bookmark-icon" aria-hidden="true">
-                    <Bookmark size={18} />
-                  </span>
-                </span>
+                </Link>
                 <span className="dashboard-trip-body">
                   <span className="dashboard-trip-title-row">
-                    <h2>{trip.title}</h2>
+                    <Link href={`/trips/${trip.slug}`}><h2>{trip.title}</h2></Link>
+                    <button
+                      className="dashboard-bookmark-remove"
+                      type="button"
+                      disabled={removingTripId === trip.tripId}
+                      onClick={() => void undoBookmark(trip.tripId)}
+                      aria-label={`Remove bookmark for ${trip.title}`}
+                    >
+                      <BookmarkX aria-hidden="true" size={17} />
+                      {removingTripId === trip.tripId ? "Removing..." : "Remove"}
+                    </button>
                   </span>
                   <p>
                     {trip.place} • {trip.duration} • {trip.group}
@@ -171,37 +214,13 @@ export function BookmarksPage() {
                     </span>
                   </span>
                 </span>
-              </Link>
+              </article>
             ))}
           </div>
         </section>
       </div>
 
-      <nav
-        className="dashboard-bottom-nav"
-        aria-label="Mobile dashboard navigation"
-      >
-        <Link href="/explore">
-          <Search aria-hidden="true" size={22} />
-          Explore
-        </Link>
-        <Link className="active" href="/dashboard/bookmarks">
-          <Bookmark aria-hidden="true" size={22} />
-          Bookmarks
-        </Link>
-        <Link className="create" href="/dashboard/create-trip">
-          <Plus aria-hidden="true" size={28} />
-          <span>Publish Trip</span>
-        </Link>
-        <Link href="/dashboard">
-          <Briefcase aria-hidden="true" size={22} />
-          My Trips
-        </Link>
-        <Link href="/dashboard/edit-profile">
-          <User aria-hidden="true" size={22} />
-          Profile
-        </Link>
-      </nav>
+      <DashboardBottomNavigation />
     </main>
   );
 }

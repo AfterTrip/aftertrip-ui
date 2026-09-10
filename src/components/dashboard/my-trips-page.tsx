@@ -3,29 +3,40 @@
 import Image from "next/image";
 import Link from "next/link";
 import {
-  Bell,
   Bookmark,
-  ChevronDown,
   Eye,
   Heart,
   Home,
   ImagePlus,
   Map,
-  Menu,
   Pencil,
   Plus,
   Search,
-  SlidersHorizontal,
   Briefcase,
   User,
   X
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  getMyTrips,
+  getOwnProfileViews,
+  getTripEngagement,
+  deleteTrip,
+  loadOwnedMedia,
+  publicMediaUrl
+} from "@/lib/aftertrip-api";
+import { formatCount, formatTripDates } from "@/lib/formatters";
+import { useAuthenticatedPage } from "@/lib/use-authenticated-page";
+import { AccountMenu } from "@/components/layout/account-menu";
+import { DeleteTripDialog } from "@/components/dashboard/delete-trip-dialog";
+import { DashboardBottomNavigation } from "@/components/dashboard/dashboard-bottom-navigation";
+import { ThemeToggle } from "@/components/theme/theme-toggle";
 
 type TripStatus = "published" | "draft";
 
 type MyTrip = {
   id: string;
+  slug: string;
   title: string;
   status: TripStatus;
   image: string;
@@ -33,87 +44,13 @@ type MyTrip = {
   date: string;
   days?: string;
   destination: string;
-  views?: string;
-  likes?: string;
+  views: number;
+  likes: number;
+  sortTimestamp: number;
   lastEdited?: string;
 };
 
-const trips: MyTrip[] = [
-  {
-    id: "meghalaya-road-trip",
-    title: "Meghalaya Road Trip",
-    status: "published",
-    image: "/images/cta/share-adventure.png",
-    alt: "Green mountain road in Meghalaya",
-    date: "May 12 - May 18, 2024",
-    days: "6 days",
-    destination: "Meghalaya, India",
-    views: "2.3K",
-    likes: "421"
-  },
-  {
-    id: "bali-island-of-gods",
-    title: "Bali: Island of Gods",
-    status: "published",
-    image: "/images/trips/bali.png",
-    alt: "Aerial view of a Bali beach",
-    date: "Apr 3 - Apr 9, 2024",
-    days: "7 days",
-    destination: "Bali, Indonesia",
-    views: "1.8K",
-    likes: "316"
-  },
-  {
-    id: "kashmir-in-spring",
-    title: "Kashmir in Spring",
-    status: "published",
-    image: "/images/trips/switzerland.png",
-    alt: "Snowy mountain valley similar to Kashmir in spring",
-    date: "Mar 15 - Mar 21, 2024",
-    days: "7 days",
-    destination: "Kashmir, India",
-    views: "1.2K",
-    likes: "244"
-  },
-  {
-    id: "thailand-getaway",
-    title: "Thailand Getaway",
-    status: "published",
-    image: "/images/trips/thailand.png",
-    alt: "Clear turquoise water around Thai islands",
-    date: "Feb 10 - Feb 16, 2024",
-    days: "6 days",
-    destination: "Thailand",
-    views: "1.1K",
-    likes: "219"
-  },
-  {
-    id: "munnar-monsoon-escape",
-    title: "Munnar Monsoon Escape",
-    status: "draft",
-    image: "/images/destinations/thailand.png",
-    alt: "Misty green hills and water in a tropical landscape",
-    date: "Draft",
-    destination: "Kerala, India",
-    lastEdited: "Last edited 2 days ago"
-  },
-  {
-    id: "japan-cherry-blossom",
-    title: "Japan Cherry Blossom",
-    status: "draft",
-    image: "/images/destinations/japan.png",
-    alt: "Japanese pagoda near Mount Fuji at sunset",
-    date: "Draft",
-    destination: "Japan",
-    lastEdited: "Last edited 5 days ago"
-  }
-];
-
-const summary = [
-  { label: "Trips", value: "7", caption: "Published", icon: Briefcase },
-  { label: "Drafts", value: "2", caption: "Unpublished", icon: Pencil },
-  { label: "Views", value: "12.4K", caption: "Profile", icon: Eye }
-];
+const DEFAULT_TRIP_COVER = "/images/hero/mountain-lake-traveler.png";
 
 const sidebarItems = [
   { label: "My Trips", href: "/dashboard", icon: Home, active: true },
@@ -123,10 +60,94 @@ const sidebarItems = [
 ];
 
 export function MyTripsPage() {
+  const authenticated = useAuthenticatedPage();
   const [activeTab, setActiveTab] = useState<TripStatus>("published");
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState("latest");
-  const profilePhoto = "/images/hero/mountain-lake-traveler.png";
+  const [trips, setTrips] = useState<MyTrip[]>([]);
+  const [profileViews, setProfileViews] = useState(0);
+  const [loadError, setLoadError] = useState("");
+
+  useEffect(() => {
+    if (!authenticated) return;
+    let active = true;
+    const ownedCoverUrls: string[] = [];
+    void (async () => {
+      try {
+        const [tripPage, views] = await Promise.all([getMyTrips(), getOwnProfileViews()]);
+        const published = tripPage.content.filter((trip) => trip.status === "PUBLISHED");
+        const [engagement, draftCoverEntries] = await Promise.all([
+          getTripEngagement(published.map((trip) => trip.id)),
+          Promise.all(
+            tripPage.content
+              .filter((trip) => trip.status === "DRAFT" && trip.coverMediaId)
+              .map(async (trip) => {
+                try {
+                  const blob = await loadOwnedMedia(trip.coverMediaId!);
+                  const url = URL.createObjectURL(blob);
+                  ownedCoverUrls.push(url);
+                  return [trip.id, url] as const;
+                } catch {
+                  return null;
+                }
+              })
+          )
+        ]);
+        if (!active) return;
+        const draftCovers = new globalThis.Map(
+          draftCoverEntries.filter((entry): entry is readonly [string, string] => entry !== null)
+        );
+        setProfileViews(views.views);
+        setTrips(
+          tripPage.content.map((trip) => {
+            const metrics = engagement.find((item) => item.tripId === trip.id);
+            return {
+              id: trip.id,
+              slug: trip.slug ?? trip.id,
+              title: trip.title || "Untitled trip",
+              status: trip.status === "PUBLISHED" ? "published" : "draft",
+              image:
+                (trip.status === "DRAFT" ? draftCovers.get(trip.id) : undefined) ??
+                (trip.status === "PUBLISHED" ? publicMediaUrl(trip.coverMediaId) : undefined) ??
+                DEFAULT_TRIP_COVER,
+              alt: `${trip.title || "Trip"} cover photo`,
+              date: formatTripDates(trip.startDate, trip.endDate),
+              days: trip.durationDays ? `${trip.durationDays} days` : undefined,
+              destination: trip.destination?.displayName || "Destination not set",
+              views: metrics?.views ?? 0,
+              likes: metrics?.likes ?? 0,
+              sortTimestamp: new Date(
+                trip.publishedAt ?? trip.updatedAt ?? trip.createdAt
+              ).getTime(),
+              lastEdited: `Updated ${new Intl.DateTimeFormat("en", { dateStyle: "medium" }).format(new Date(trip.updatedAt))}`
+            };
+          })
+        );
+      } catch {
+        if (active) setLoadError("We couldn't load your trips right now. Please try again.");
+      }
+    })();
+    return () => {
+      active = false;
+      ownedCoverUrls.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [authenticated]);
+
+  const summary = [
+    {
+      label: "Trips",
+      value: String(trips.filter((trip) => trip.status === "published").length),
+      caption: "Published",
+      icon: Briefcase
+    },
+    {
+      label: "Drafts",
+      value: String(trips.filter((trip) => trip.status === "draft").length),
+      caption: "Unpublished",
+      icon: Pencil
+    },
+    { label: "Views", value: formatCount(profileViews), caption: "Profile", icon: Eye }
+  ];
 
   const visibleTrips = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -141,22 +162,38 @@ export function MyTripsPage() {
       return matchesTab && matchesSearch;
     });
 
-    return sort === "oldest" ? [...filtered].reverse() : filtered;
-  }, [activeTab, query, sort]);
+    return [...filtered].sort((first, second) => {
+      if (sort === "popular") {
+        return (
+          second.likes - first.likes ||
+          second.views - first.views ||
+          second.sortTimestamp - first.sortTimestamp
+        );
+      }
+
+      return sort === "oldest"
+        ? first.sortTimestamp - second.sortTimestamp
+        : second.sortTimestamp - first.sortTimestamp;
+    });
+  }, [activeTab, query, sort, trips]);
+
+  const removeTrip = async (tripId: string) => {
+    await deleteTrip(tripId);
+    setTrips((current) => current.filter((trip) => trip.id !== tripId));
+  };
 
   return (
     <main id="main-content" className="dashboard-page">
       <header className="dashboard-topbar" aria-label="Dashboard header">
         <Link className="dashboard-brand" href="/" aria-label="AfterTrip home">
           <Image
-            src="/brand/aftertrip-mark.svg"
+            src="/brand/aftertrip-logo-green.png"
             alt=""
-            width={38}
-            height={38}
+            width={160}
+            height={53}
             priority
             aria-hidden="true"
           />
-          <span>AfterTrip</span>
         </Link>
         <nav
           className="dashboard-desktop-nav"
@@ -167,6 +204,7 @@ export function MyTripsPage() {
           <Link href="/#how-it-works">How it works</Link>
         </nav>
         <div className="dashboard-top-actions">
+          <ThemeToggle />
           <Link
             className="dashboard-create-button"
             href="/dashboard/create-trip"
@@ -174,40 +212,10 @@ export function MyTripsPage() {
             <Plus aria-hidden="true" size={18} />
             Publish Trip
           </Link>
-          <button
-            className="dashboard-icon-button"
-            type="button"
-            aria-label="Notifications"
-          >
-            <Bell aria-hidden="true" size={22} />
-          </button>
-          <button
-            className="dashboard-profile-button"
-            type="button"
-            aria-label="Open profile menu"
-          >
-            <span
-              style={{ backgroundImage: "url(" + profilePhoto + ")" }}
-              aria-hidden="true"
-            />
-            <ChevronDown aria-hidden="true" size={18} />
-          </button>
+          <AccountMenu variant="dashboard" />
         </div>
         <div className="dashboard-mobile-actions">
-          <button
-            className="dashboard-icon-button"
-            type="button"
-            aria-label="Notifications"
-          >
-            <Bell aria-hidden="true" size={21} />
-          </button>
-          <button
-            className="dashboard-icon-button"
-            type="button"
-            aria-label="Open menu"
-          >
-            <Menu aria-hidden="true" size={25} />
-          </button>
+          <ThemeToggle />
         </div>
       </header>
 
@@ -251,19 +259,18 @@ export function MyTripsPage() {
           aria-labelledby="dashboard-title"
         >
           <div className="dashboard-hero-panel">
-            <div>
+            <Image
+              className="dashboard-hero-image"
+              src="/images/hero/mountain-lake-traveler.png"
+              alt=""
+              fill
+              priority
+              sizes="(max-width: 900px) 100vw, 1200px"
+              aria-hidden="true"
+            />
+            <div className="dashboard-hero-copy">
               <h1 id="dashboard-title">My Trips</h1>
               <p>Your journeys, memories and stories.</p>
-            </div>
-            <div className="dashboard-scene" aria-hidden="true">
-              <span className="sun" />
-              <span className="bird one" />
-              <span className="bird two" />
-              <span className="ridge far" />
-              <span className="ridge near" />
-              <span className="tree a" />
-              <span className="tree b" />
-              <span className="tree c" />
             </div>
             <div
               className="dashboard-summary-card"
@@ -335,45 +342,73 @@ export function MyTripsPage() {
                   aria-label="Sort trips"
                 >
                   <option value="latest">Latest</option>
+                  <option value="popular">Popular</option>
                   <option value="oldest">Oldest</option>
                 </select>
               </label>
-              <button
-                className="dashboard-filter-button"
-                type="button"
-                aria-label="Open filters"
-              >
-                <SlidersHorizontal aria-hidden="true" size={22} />
-              </button>
             </div>
           </div>
 
-          <div className="dashboard-trip-grid" aria-live="polite">
+          {loadError ? <p className="dashboard-api-error" role="alert">{loadError}</p> : null}
+          <div
+            className="dashboard-trip-grid"
+            role="list"
+            aria-label="My trip results"
+            aria-live="polite"
+          >
             {visibleTrips.length ? (
               visibleTrips.map((trip) => (
-                <article className="dashboard-trip-card" key={trip.id}>
+                <article className="dashboard-trip-card" role="listitem" key={trip.id}>
                   <div className="dashboard-trip-image">
-                    <Image
-                      src={trip.image}
-                      alt={trip.alt}
-                      fill
-                      sizes="(max-width: 767px) 116px, (max-width: 1199px) 50vw, 360px"
-                    />
+                    {trip.status === "published" ? (
+                      <Link
+                        className="dashboard-trip-image-link"
+                        href={`/trips/${trip.slug}`}
+                        aria-label={`View published trip ${trip.title}`}
+                      >
+                        <Image
+                          src={trip.image}
+                          alt={trip.alt}
+                          fill
+                          sizes="(max-width: 767px) 116px, (max-width: 1199px) 50vw, 360px"
+                        />
+                      </Link>
+                    ) : (
+                      <Image
+                        src={trip.image}
+                        alt={trip.alt}
+                        fill
+                        sizes="(max-width: 767px) 116px, (max-width: 1199px) 50vw, 360px"
+                      />
+                    )}
                     <span>
                       {trip.status === "published" ? "Published" : "Draft"}
                     </span>
-                    <Link
-                      className="dashboard-card-edit"
-                      href={`/dashboard/create-trip?trip=${trip.id}`}
-                      aria-label={`Edit ${trip.title}`}
-                    >
-                      <Pencil aria-hidden="true" size={15} />
-                      Edit
-                    </Link>
+                    <div className="dashboard-card-actions">
+                      <Link
+                        className="dashboard-card-edit"
+                        href={`/dashboard/create-trip?trip=${trip.id}`}
+                        aria-label={`Edit ${trip.title}`}
+                      >
+                        <Pencil aria-hidden="true" size={15} />
+                        Edit
+                      </Link>
+                      <DeleteTripDialog
+                        className="dashboard-card-delete"
+                        tripTitle={trip.title}
+                        onDelete={() => removeTrip(trip.id)}
+                      />
+                    </div>
                   </div>
                   <div className="dashboard-trip-body">
                     <div className="dashboard-trip-title-row">
-                      <h2>{trip.title}</h2>
+                      {trip.status === "published" ? (
+                        <h2>
+                          <Link href={`/trips/${trip.slug}`}>{trip.title}</Link>
+                        </h2>
+                      ) : (
+                        <h2>{trip.title}</h2>
+                      )}
                     </div>
                     <p>
                       {trip.date}
@@ -384,15 +419,24 @@ export function MyTripsPage() {
                     </p>
                     <p className="dashboard-location">{trip.destination}</p>
                     {trip.status === "published" ? (
-                      <div className="dashboard-trip-meta">
-                        <span>
-                          <Eye aria-hidden="true" size={16} />
-                          {trip.views}
-                        </span>
-                        <span>
-                          <Heart aria-hidden="true" size={16} />
-                          {trip.likes}
-                        </span>
+                      <div className="dashboard-published-footer">
+                        <div className="dashboard-trip-meta">
+                          <span>
+                            <Eye aria-hidden="true" size={16} />
+                            {formatCount(trip.views)}
+                          </span>
+                          <span>
+                            <Heart aria-hidden="true" size={16} />
+                            {formatCount(trip.likes)}
+                          </span>
+                        </div>
+                        <Link
+                          className="dashboard-view-trip"
+                          href={`/trips/${trip.slug}`}
+                        >
+                          <Eye aria-hidden="true" size={15} />
+                          View trip
+                        </Link>
                       </div>
                     ) : (
                       <Link
@@ -402,6 +446,21 @@ export function MyTripsPage() {
                         Continue editing
                       </Link>
                     )}
+                    <div className="dashboard-mobile-card-actions">
+                      <Link
+                        href={`/dashboard/create-trip?trip=${trip.id}`}
+                        aria-label={`Edit ${trip.title}`}
+                      >
+                        <Pencil aria-hidden="true" size={15} />
+                        Edit
+                      </Link>
+                      <DeleteTripDialog
+                        className="dashboard-mobile-delete"
+                        tripTitle={trip.title}
+                        onDelete={() => removeTrip(trip.id)}
+                        showLabel
+                      />
+                    </div>
                   </div>
                 </article>
               ))
@@ -427,31 +486,7 @@ export function MyTripsPage() {
         </section>
       </div>
 
-      <nav
-        className="dashboard-bottom-nav"
-        aria-label="Mobile dashboard navigation"
-      >
-        <Link href="/explore">
-          <Search aria-hidden="true" size={22} />
-          Explore
-        </Link>
-        <Link href="/dashboard/bookmarks">
-          <Bookmark aria-hidden="true" size={22} />
-          Bookmarks
-        </Link>
-        <Link className="create" href="/dashboard/create-trip">
-          <Plus aria-hidden="true" size={28} />
-          <span>Publish Trip</span>
-        </Link>
-        <Link className="active" href="/dashboard">
-          <Briefcase aria-hidden="true" size={22} />
-          My Trips
-        </Link>
-        <Link href="/dashboard/edit-profile">
-          <User aria-hidden="true" size={22} />
-          Profile
-        </Link>
-      </nav>
+      <DashboardBottomNavigation />
     </main>
   );
 }

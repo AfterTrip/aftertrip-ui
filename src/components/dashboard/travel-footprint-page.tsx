@@ -4,27 +4,34 @@ import Image from "next/image";
 import Link from "next/link";
 import {
   Award,
-  Bell,
   Bookmark,
   Briefcase,
   CalendarDays,
-  ChevronDown,
   Home,
   Leaf,
   Map,
   MapPin,
-  Menu,
   Mountain,
   Plus,
-  Search,
   ShieldCheck,
   User,
   Users,
   Waves
 } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { type CSSProperties, useEffect, useRef, useState } from "react";
+import {
+  getOwnProfile,
+  getOwnTravelFootprint,
+  publicMediaUrl
+} from "@/lib/aftertrip-api";
+import { titleCaseEnum } from "@/lib/formatters";
+import { useAuthenticatedPage } from "@/lib/use-authenticated-page";
+import { AccountMenu } from "@/components/layout/account-menu";
+import { DashboardBottomNavigation } from "@/components/dashboard/dashboard-bottom-navigation";
+import { ThemeToggle } from "@/components/theme/theme-toggle";
 
-const profilePhoto = "/images/hero/mountain-lake-traveler.png";
+const profilePhoto = "";
+const DEFAULT_TRIP_COVER = "/images/hero/mountain-lake-traveler.png";
 
 const sidebarItems = [
   { label: "My Trips", href: "/dashboard", icon: Home },
@@ -38,96 +45,146 @@ const sidebarItems = [
   { label: "Edit Profile", href: "/dashboard/edit-profile", icon: User }
 ];
 
-const footprintTrips = [
-  {
-    destination: "Andaman Islands",
-    label: "Andaman Islands, India",
-    trips: 2,
-    days: 8,
-    coordinates: { lat: 11.7401, lng: 92.6586 }
-  },
-  {
-    destination: "Goa",
-    label: "Goa, India",
-    trips: 1,
-    days: 4,
-    coordinates: { lat: 15.2993, lng: 74.124 }
-  },
-  {
-    destination: "Munnar",
-    label: "Munnar, Kerala, India",
-    trips: 3,
-    days: 9,
-    coordinates: { lat: 10.0889, lng: 77.0595 }
-  },
-  {
-    destination: "Meghalaya",
-    label: "Meghalaya, India",
-    trips: 2,
-    days: 7,
-    coordinates: { lat: 25.467, lng: 91.3662 }
-  },
-  {
-    destination: "Kashmir",
-    label: "Kashmir, India",
-    trips: 1,
-    days: 7,
-    coordinates: { lat: 34.0837, lng: 74.7973 }
-  },
-  {
-    destination: "Bali",
-    label: "Bali, Indonesia",
-    trips: 3,
-    days: 11,
-    coordinates: { lat: -8.3405, lng: 115.092 }
-  }
-];
+type FootprintPlace = {
+  destination: string;
+  label: string;
+  trips: number;
+  days: number;
+  coverUrl: string;
+  coordinates: { lat: number; lng: number };
+};
 
-const travelDna = [
-  { label: "Nature", value: 82, icon: Leaf },
-  { label: "Adventure", value: 61, icon: Mountain },
-  { label: "Mountains", value: 54, icon: Mountain },
-  { label: "Beach", value: 38, icon: Waves }
-];
-
-const achievements = [
-  { label: "First Journey", icon: Briefcase },
-  { label: "Mountain Explorer", icon: Mountain },
-  { label: "Nature Lover", icon: Leaf },
-  { label: "Coast Chaser", icon: Waves },
-  { label: "10 Journeys", icon: Award },
-  { label: "Verified Mapper", icon: ShieldCheck }
-];
-
-const travelWith = [
-  { label: "Friends", value: 58 },
-  { label: "Family", value: 25 },
-  { label: "Solo", value: 13 },
-  { label: "Couple", value: 4 }
-];
+type DnaItem = { label: string; value: number; icon: typeof Leaf };
+type AchievementItem = { label: string; icon: typeof Award };
+type CompanionItem = { label: string; value: number };
 
 export function TravelFootprintPage() {
-  const totalTrips = footprintTrips.reduce(
-    (sum, place) => sum + place.trips,
-    0
-  );
-  const travelDays = footprintTrips.reduce((sum, place) => sum + place.days, 0);
+  const authenticated = useAuthenticatedPage();
+  const [places, setPlaces] = useState<FootprintPlace[]>([]);
+  const [dna, setDna] = useState<DnaItem[]>([]);
+  const [unlocked, setUnlocked] = useState<AchievementItem[]>([]);
+  const [companions, setCompanions] = useState<CompanionItem[]>([]);
+  const [totalTrips, setTotalTrips] = useState(0);
+  const [travelDays, setTravelDays] = useState(0);
+  const [loaded, setLoaded] = useState(false);
+  const [profile, setProfile] = useState({
+    name: "Traveler",
+    location: "",
+    tagline: "",
+    avatar: profilePhoto,
+    cover: DEFAULT_TRIP_COVER
+  });
+  const [message, setMessage] = useState("");
   const totalAchievements = 50;
-  const unlockedAchievements = achievements.length;
+  const unlockedAchievements = unlocked.length;
+
+  useEffect(() => {
+    if (!authenticated) return;
+    let active = true;
+    Promise.all([getOwnTravelFootprint(), getOwnProfile()])
+      .then(([footprint, ownProfile]) => {
+        if (!active) return;
+        setTotalTrips(footprint.summary.trips);
+        setTravelDays(footprint.summary.travelDays);
+        setPlaces(
+          footprint.destinations.map((destination) => {
+            const destinationJourneys = footprint.journeys.filter(
+              (journey) => journey.destination === destination.displayName
+            );
+            const coverUrl =
+              destinationJourneys
+                .map(
+                  (journey) =>
+                    publicMediaUrl(journey.coverMediaId) ?? journey.coverUrl
+                )
+                .find(Boolean) ?? DEFAULT_TRIP_COVER;
+
+            return {
+              destination: destination.name,
+              label: destination.displayName,
+              trips: destination.trips,
+              days: destinationJourneys.reduce(
+                (sum, journey) => sum + journey.durationDays,
+                0
+              ),
+              coverUrl,
+              coordinates: {
+                lat: destination.latitude,
+                lng: destination.longitude
+              }
+            };
+          })
+        );
+        setDna(
+          footprint.travelDna.slice(0, 5).map((item) => ({
+            label: titleCaseEnum(item.key),
+            value: item.percentage,
+            icon: item.key === "BEACH" ? Waves : item.key === "NATURE" ? Leaf : Mountain
+          }))
+        );
+        setUnlocked(
+          footprint.achievements.map((item) => ({
+            label: item.title,
+            icon: item.code.includes("MOUNTAIN")
+              ? Mountain
+              : item.code.includes("COAST")
+                ? Waves
+                : item.code.includes("NATURE")
+                  ? Leaf
+                  : Award
+          }))
+        );
+        setCompanions(
+          footprint.travelWith.map((item) => ({
+            label: titleCaseEnum(item.key),
+            value: item.percentage
+          }))
+        );
+        setProfile({
+          name: ownProfile.displayName,
+          location: ownProfile.location ?? "",
+          tagline: ownProfile.tagline ?? "",
+          avatar:
+            publicMediaUrl(ownProfile.avatarMediaId) ??
+            ownProfile.avatarUrl ??
+            profilePhoto,
+          cover:
+            publicMediaUrl(ownProfile.coverMediaId) ??
+            ownProfile.coverUrl ??
+            DEFAULT_TRIP_COVER
+        });
+      })
+      .catch((error) => {
+        if (active) setMessage(error instanceof Error ? error.message : "Could not load your travel footprint.");
+      })
+      .finally(() => {
+        if (active) setLoaded(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, [authenticated]);
+
+  if (!authenticated) {
+    return (
+      <main id="main-content" className="dashboard-page footprint-page">
+        <DashboardBottomNavigation />
+      </main>
+    );
+  }
 
   return (
     <main id="main-content" className="dashboard-page footprint-page">
       <header className="dashboard-topbar" aria-label="Dashboard header">
         <Link className="dashboard-brand" href="/" aria-label="AfterTrip home">
           <Image
-            src="/brand/aftertrip-mark.svg"
+            src="/brand/aftertrip-logo-green.png"
             alt=""
-            width={38}
-            height={38}
+            width={160}
+            height={53}
             priority
             aria-hidden="true"
           />
-          <span>AfterTrip</span>
         </Link>
         <nav
           className="dashboard-desktop-nav"
@@ -138,6 +195,7 @@ export function TravelFootprintPage() {
           <Link href="/#how-it-works">How it works</Link>
         </nav>
         <div className="dashboard-top-actions">
+          <ThemeToggle />
           <Link
             className="dashboard-create-button"
             href="/dashboard/create-trip"
@@ -145,40 +203,10 @@ export function TravelFootprintPage() {
             <Plus aria-hidden="true" size={18} />
             Publish Trip
           </Link>
-          <button
-            className="dashboard-icon-button"
-            type="button"
-            aria-label="Notifications"
-          >
-            <Bell aria-hidden="true" size={22} />
-          </button>
-          <Link
-            className="dashboard-profile-button"
-            href="/dashboard/edit-profile"
-            aria-label="Open edit profile"
-          >
-            <span
-              style={{ backgroundImage: "url(" + profilePhoto + ")" }}
-              aria-hidden="true"
-            />
-            <ChevronDown aria-hidden="true" size={18} />
-          </Link>
+          <AccountMenu variant="dashboard" />
         </div>
         <div className="dashboard-mobile-actions">
-          <button
-            className="dashboard-icon-button"
-            type="button"
-            aria-label="Notifications"
-          >
-            <Bell aria-hidden="true" size={21} />
-          </button>
-          <button
-            className="dashboard-icon-button"
-            type="button"
-            aria-label="Open menu"
-          >
-            <Menu aria-hidden="true" size={25} />
-          </button>
+          <ThemeToggle />
         </div>
       </header>
 
@@ -220,153 +248,148 @@ export function TravelFootprintPage() {
           className="dashboard-content footprint-content"
           aria-labelledby="footprint-title"
         >
-          <section className="footprint-profile-card">
-            <Image
-              src="/images/cta/share-adventure.png"
-              alt=""
-              fill
-              sizes="(max-width: 900px) 100vw, 1100px"
-              aria-hidden="true"
-            />
-            <div>
-              <span
-                className="footprint-avatar"
-                style={{ backgroundImage: "url(" + profilePhoto + ")" }}
-                aria-hidden="true"
-              />
-              <div>
-                <h1 id="footprint-title">
-                  Sreehari P <ShieldCheck aria-hidden="true" size={20} />
-                </h1>
-                <p>
-                  <MapPin aria-hidden="true" size={17} />
-                  Kochi, Kerala, India
-                </p>
-                <strong>Exploring the world, one journey at a time.</strong>
-              </div>
-            </div>
-          </section>
-
-          <div className="footprint-summary" aria-label="Travel summary">
-            <article>
-              <Briefcase aria-hidden="true" size={24} />
-              <strong>{totalTrips}</strong>
-              <span>Trips</span>
-            </article>
-            <article>
-              <CalendarDays aria-hidden="true" size={24} />
-              <strong>{travelDays}</strong>
-              <span>Travel Days</span>
-            </article>
-            <article>
-              <Award aria-hidden="true" size={24} />
-              <strong>
-                {unlockedAchievements}/{totalAchievements}
-              </strong>
-              <span>Achievements unlocked</span>
-            </article>
-          </div>
-
-          <div className="footprint-grid">
-            <section className="footprint-map-card">
-              <div className="footprint-section-heading">
-                <div>
-                  <h2>Travel Footprint</h2>
-                  <p>Coordinates from verified destinations in your trips.</p>
-                </div>
-                <span>Map View</span>
-              </div>
-              <FootprintMap places={footprintTrips} />
+          {!loaded && !message ? (
+            <section className="footprint-loading-card" aria-live="polite">
+              <h1 id="footprint-title" className="sr-only">
+                Travel Footprint
+              </h1>
+              <strong>Loading your travel footprint...</strong>
+              <span>Getting your latest profile and published trip map.</span>
             </section>
-
-            <aside className="footprint-insights" aria-label="Travel insights">
-              <section className="footprint-card">
-                <h2>Travel DNA</h2>
-                <p>Your travel personality from published trips.</p>
-                <div className="footprint-bars">
-                  {travelDna.map((item) => {
-                    const Icon = item.icon;
-                    return (
-                      <article key={item.label}>
-                        <Icon aria-hidden="true" size={20} />
-                        <span>{item.label}</span>
-                        <strong>{item.value}%</strong>
-                        <i style={{ width: `${item.value}%` }} />
-                      </article>
-                    );
-                  })}
+          ) : (
+            <>
+              <section className="footprint-profile-card">
+                <Image
+                  src={profile.cover}
+                  alt=""
+                  fill
+                  priority
+                  sizes="(max-width: 900px) 100vw, 1100px"
+                  aria-hidden="true"
+                />
+                <div>
+                  <span
+                    className={`footprint-avatar${profile.avatar ? " has-photo" : " profile-initials"}`}
+                    style={profile.avatar ? { backgroundImage: "url(" + profile.avatar + ")" } : undefined}
+                    aria-hidden="true"
+                  >
+                    {profile.avatar ? null : profile.name.slice(0, 1).toUpperCase()}
+                  </span>
+                  <div>
+                    <h1 id="footprint-title">
+                      {profile.name} <ShieldCheck aria-hidden="true" size={20} />
+                    </h1>
+                    <p>
+                      <MapPin aria-hidden="true" size={17} />
+                      {profile.location || "Location not shared"}
+                    </p>
+                    {profile.tagline ? <strong>{profile.tagline}</strong> : null}
+                  </div>
                 </div>
               </section>
 
-              <section className="footprint-card">
-                <h2>Achievements</h2>
-                <p>Milestones unlocked from your journeys.</p>
-                <div className="footprint-achievements">
-                  {achievements.map((item) => {
-                    const Icon = item.icon;
-                    return (
-                      <article key={item.label}>
-                        <span>
-                          <Icon aria-hidden="true" size={22} />
-                        </span>
-                        {item.label}
-                      </article>
-                    );
-                  })}
-                </div>
-              </section>
+              <div className="footprint-summary" aria-label="Travel summary">
+                <article>
+                  <Briefcase aria-hidden="true" size={24} />
+                  <strong>{totalTrips}</strong>
+                  <span>Trips</span>
+                </article>
+                <article>
+                  <CalendarDays aria-hidden="true" size={24} />
+                  <strong>{travelDays}</strong>
+                  <span>Travel Days</span>
+                </article>
+                <article>
+                  <Award aria-hidden="true" size={24} />
+                  <strong>
+                    {unlockedAchievements}/{totalAchievements}
+                  </strong>
+                  <span>Achievements unlocked</span>
+                </article>
+              </div>
 
-              <section className="footprint-card">
-                <h2>Travel with</h2>
-                <p>Who you travel with most.</p>
-                <div className="footprint-companions">
-                  {travelWith.map((item) => (
-                    <article key={item.label}>
-                      <Users aria-hidden="true" size={18} />
-                      <span>{item.label}</span>
-                      <i>
-                        <em style={{ width: `${item.value}%` }} />
-                      </i>
-                      <strong>{item.value}%</strong>
-                    </article>
-                  ))}
-                </div>
-              </section>
-            </aside>
-          </div>
+              <div className="footprint-grid">
+                <section className="footprint-map-card">
+                  <div className="footprint-section-heading">
+                    <div>
+                      <h2>Travel Footprint</h2>
+                      <p>Coordinates from verified destinations in your trips.</p>
+                    </div>
+                  </div>
+                  {message ? <p className="dashboard-api-error" role="alert">{message}</p> : null}
+                  <FootprintMap places={places} />
+                </section>
+
+                <aside className="footprint-insights" aria-label="Travel insights">
+                  <section className="footprint-card">
+                    <h2>Travel DNA</h2>
+                    <p>Your travel personality from published trips.</p>
+                    <div className="footprint-bars">
+                      {dna.map((item) => {
+                        const Icon = item.icon;
+                        return (
+                          <article key={item.label}>
+                            <Icon aria-hidden="true" size={20} />
+                            <span>{item.label}</span>
+                            <strong>{item.value}%</strong>
+                            <i
+                              style={
+                                { "--bar-value": `${item.value}%` } as CSSProperties
+                              }
+                            />
+                          </article>
+                        );
+                      })}
+                    </div>
+                  </section>
+
+                  <section className="footprint-card">
+                    <h2>Achievements</h2>
+                    <p>Milestones unlocked from your journeys.</p>
+                    <div className="footprint-achievements">
+                      {unlocked.map((item) => {
+                        const Icon = item.icon;
+                        return (
+                          <article key={item.label}>
+                            <span>
+                              <Icon aria-hidden="true" size={22} />
+                            </span>
+                            {item.label}
+                          </article>
+                        );
+                      })}
+                    </div>
+                  </section>
+
+                  <section className="footprint-card">
+                    <h2>Travel with</h2>
+                    <p>Who you travel with most.</p>
+                    <div className="footprint-companions">
+                      {companions.map((item) => (
+                        <article key={item.label}>
+                          <Users aria-hidden="true" size={18} />
+                          <span>{item.label}</span>
+                          <i>
+                            <em style={{ width: `${item.value}%` }} />
+                          </i>
+                          <strong>{item.value}%</strong>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
+                </aside>
+              </div>
+            </>
+          )}
         </section>
       </div>
 
-      <nav
-        className="dashboard-bottom-nav"
-        aria-label="Mobile dashboard navigation"
-      >
-        <Link href="/explore">
-          <Search aria-hidden="true" size={22} />
-          Explore
-        </Link>
-        <Link href="/dashboard/bookmarks">
-          <Bookmark aria-hidden="true" size={22} />
-          Bookmarks
-        </Link>
-        <Link className="create" href="/dashboard/create-trip">
-          <Plus aria-hidden="true" size={28} />
-          <span>Publish Trip</span>
-        </Link>
-        <Link href="/dashboard">
-          <Briefcase aria-hidden="true" size={22} />
-          My Trips
-        </Link>
-        <Link href="/dashboard/edit-profile">
-          <User aria-hidden="true" size={22} />
-          Profile
-        </Link>
-      </nav>
+      <DashboardBottomNavigation />
     </main>
   );
 }
 
-function FootprintMap({ places }: { places: typeof footprintTrips }) {
+function FootprintMap({ places }: { places: FootprintPlace[] }) {
   const mapNode = useRef<HTMLDivElement>(null);
   const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
@@ -381,6 +404,7 @@ function FootprintMap({ places }: { places: typeof footprintTrips }) {
       if (cancelled || !mapNode.current) return;
 
       mapboxgl.default.accessToken = token;
+      mapNode.current.replaceChildren();
       const map = new mapboxgl.default.Map({
         container: mapNode.current,
         style: "mapbox://styles/mapbox/outdoors-v12",
@@ -400,8 +424,14 @@ function FootprintMap({ places }: { places: typeof footprintTrips }) {
       const markers = places.map((place) => {
         const element = document.createElement("button");
         element.type = "button";
-        element.className = "footprint-mapbox-marker";
-        element.textContent = String(place.trips);
+        element.className = place.coverUrl
+          ? "footprint-mapbox-marker has-cover"
+          : "footprint-mapbox-marker";
+        if (place.coverUrl) {
+          element.style.backgroundImage = `url(${place.coverUrl})`;
+        } else {
+          element.textContent = String(place.trips);
+        }
         element.setAttribute(
           "aria-label",
           `${place.label}, ${place.trips} trips`

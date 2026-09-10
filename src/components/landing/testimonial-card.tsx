@@ -25,6 +25,7 @@ export function TestimonialCard({ testimonial }: { testimonial: Testimonial }) {
         <Avatar
           initials={testimonial.avatar.initials}
           tone={testimonial.avatar.tone}
+          src={testimonial.avatar.src}
           label={`${testimonial.name} avatar`}
         />
         <div>

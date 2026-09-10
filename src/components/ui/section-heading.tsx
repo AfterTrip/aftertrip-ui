@@ -21,8 +21,13 @@ export function SectionHeading({ titleId, title, copy, link, centered = false }:
         {copy ? <p>{copy}</p> : null}
       </div>
       {link ? (
-        <Link className="section-link" href={link.href}>
-          {link.label}
+        <Link className="section-link" href={link.href} aria-label={link.label}>
+          <span className="section-link-full" aria-hidden="true">
+            {link.label}
+          </span>
+          <span className="section-link-mobile" aria-hidden="true">
+            View all
+          </span>
           <ArrowRight aria-hidden="true" size={18} />
         </Link>
       ) : null}

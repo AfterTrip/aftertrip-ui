@@ -4,9 +4,11 @@ export type Trip = {
   country: string;
   duration: string;
   author: string;
+  authorInitials: string;
+  authorAvatarUrl?: string | null;
   rating: string;
-  views?: string;
-  likes?: string;
+  views: string;
+  likes: string;
   image: {
     src: string;
     alt: string;

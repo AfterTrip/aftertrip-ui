@@ -4,15 +4,9 @@ import { Eye, Heart } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import type { Trip } from "@/types/trip";
 
-type TripCardProps = {
-  trip: Trip;
-  index: number;
-};
+type TripCardProps = { trip: Trip };
 
-const avatarTones = ["coral", "sand", "teal", "coral"] as const;
-const authorInitials = ["SJ", "AC", "EW", "RV"] as const;
-
-export function TripCard({ trip, index }: TripCardProps) {
+export function TripCard({ trip }: TripCardProps) {
   return (
     <Link className="trip-card" href={`/trips/${trip.slug}`}>
       <Image
@@ -29,17 +23,18 @@ export function TripCard({ trip, index }: TripCardProps) {
         <div className="trip-meta">
           <span>
             <Avatar
-              initials={authorInitials[index] ?? "AT"}
-              tone={avatarTones[index] ?? "teal"}
+              initials={trip.authorInitials}
+              tone="teal"
+              src={trip.authorAvatarUrl}
               label={`${trip.author} avatar`}
             />
             By {trip.author}
           </span>
           <span className="trip-card-metrics">
             <Eye aria-hidden="true" size={15} />
-            {trip.views ?? "1.2K"}
+            {trip.views}
             <Heart aria-hidden="true" size={15} />
-            {trip.likes ?? "240"}
+            {trip.likes}
           </span>
         </div>
       </div>
