@@ -16741,6 +16741,47 @@ body:has(.legal-page) .site-header .theme-toggle {
   }
 }
 
+/* Mobile homepage hero header: keep the image behind the nav like desktop. */
+@media (max-width: 1023px) {
+  body:has(.hero-section) .site-header,
+  :root[data-theme="dark"] body:has(.hero-section) .site-header {
+    position: absolute;
+    inset: 0 0 auto;
+    top: 0;
+    height: 78px;
+    border-bottom: 0;
+    background: transparent;
+    color: #fff;
+    box-shadow: none;
+    backdrop-filter: none;
+  }
+
+  body:has(.hero-section) .site-header .brand-lockup .brand-mark-green,
+  :root[data-theme="dark"] body:has(.hero-section) .site-header .brand-lockup .brand-mark-green {
+    display: none;
+  }
+
+  body:has(.hero-section) .site-header .brand-lockup .brand-mark-white,
+  :root[data-theme="dark"] body:has(.hero-section) .site-header .brand-lockup .brand-mark-white {
+    display: block;
+  }
+
+  body:has(.hero-section) .mobile-header-theme-toggle,
+  body:has(.hero-section) .mobile-menu-trigger {
+    border-color: rgba(255, 255, 255, 0.26);
+    background: rgba(2, 15, 17, 0.24);
+    color: #fff;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(14px);
+  }
+
+  body:has(.hero-section) .mobile-header-theme-toggle:hover,
+  body:has(.hero-section) .mobile-menu-trigger:hover {
+    border-color: rgba(255, 255, 255, 0.48);
+    background: rgba(2, 15, 17, 0.38);
+  }
+}
+
 /* Release polish: public profile and footprint visibility */
 .footprint-mapbox-marker.has-cover,
 .profile-mapbox-marker.has-cover,

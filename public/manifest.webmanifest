@@ -8,9 +8,9 @@
   "theme_color": "#0B2F2B",
   "icons": [
     {
-      "src": "/brand/favicon.svg",
-      "sizes": "64x64",
-      "type": "image/svg+xml"
+      "src": "/brand/aftertrip-icon.png",
+      "sizes": "512x512",
+      "type": "image/png"
     }
   ]
 }

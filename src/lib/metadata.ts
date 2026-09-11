@@ -34,8 +34,8 @@ export const defaultMetadata: Metadata = {
     images: ["/images/hero/mountain-lake-traveler.png"]
   },
   icons: {
-    icon: "/brand/favicon.svg",
-    apple: "/brand/favicon.svg"
+    icon: "/brand/aftertrip-icon.png",
+    apple: "/brand/aftertrip-icon.png"
   },
   manifest: "/manifest.webmanifest"
 };
