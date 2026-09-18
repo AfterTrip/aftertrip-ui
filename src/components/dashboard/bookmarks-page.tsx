@@ -27,6 +27,7 @@ import { GENERIC_ERROR_MESSAGE } from "@/lib/user-facing-errors";
 import { AccountMenu } from "@/components/layout/account-menu";
 import { DashboardBottomNavigation } from "@/components/dashboard/dashboard-bottom-navigation";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { FeedbackMessage } from "@/components/ui/feedback-message";
 
 const sidebarItems = [
   { label: "My Trips", href: "/dashboard", icon: Home },
@@ -88,6 +89,12 @@ export function BookmarksPage() {
       active = false;
     };
   }, [authenticated]);
+
+  useEffect(() => {
+    if (!message || message === GENERIC_ERROR_MESSAGE || bookmarkedTrips.length === 0) return;
+    const timeout = window.setTimeout(() => setMessage(""), 3600);
+    return () => window.clearTimeout(timeout);
+  }, [bookmarkedTrips.length, message]);
 
   const undoBookmark = async (tripId: string) => {
     setRemovingTripId(tripId);
@@ -171,7 +178,15 @@ export function BookmarksPage() {
           </div>
 
           <div className="dashboard-trip-grid" aria-label="Bookmarked trips">
-            {message ? <p className="dashboard-api-message" role="status">{message}</p> : null}
+            {message ? (
+              <FeedbackMessage
+                className="dashboard-api-message feedback-message-grid"
+                title={message === GENERIC_ERROR_MESSAGE ? "Could not update bookmarks" : "Bookmarks"}
+                variant={message === GENERIC_ERROR_MESSAGE ? "error" : "info"}
+              >
+                {message}
+              </FeedbackMessage>
+            ) : null}
             {bookmarkedTrips.map((trip) => (
               <article
                 className="dashboard-trip-card dashboard-bookmark-card"

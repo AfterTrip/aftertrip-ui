@@ -30,6 +30,7 @@ import { GENERIC_ERROR_MESSAGE } from "@/lib/user-facing-errors";
 import { AccountMenu } from "@/components/layout/account-menu";
 import { DashboardBottomNavigation } from "@/components/dashboard/dashboard-bottom-navigation";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { FeedbackMessage } from "@/components/ui/feedback-message";
 
 const profilePhoto = "";
 const DEFAULT_TRIP_COVER = "/images/hero/mountain-lake-traveler.png";
@@ -317,7 +318,15 @@ export function TravelFootprintPage() {
                       <p>Coordinates from verified destinations in your trips.</p>
                     </div>
                   </div>
-                  {message ? <p className="dashboard-api-error" role="alert">{message}</p> : null}
+                  {message ? (
+                    <FeedbackMessage
+                      className="dashboard-api-error feedback-message-inline"
+                      title="Travel footprint unavailable"
+                      variant="error"
+                    >
+                      {message}
+                    </FeedbackMessage>
+                  ) : null}
                   <FootprintMap places={places} />
                 </section>
 

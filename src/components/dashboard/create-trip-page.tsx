@@ -53,6 +53,7 @@ import { GENERIC_ERROR_MESSAGE } from "@/lib/user-facing-errors";
 import { AccountMenu } from "@/components/layout/account-menu";
 import { DeleteTripDialog } from "@/components/dashboard/delete-trip-dialog";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { FeedbackMessage } from "@/components/ui/feedback-message";
 
 type StepId = "basics" | "about" | "itinerary" | "budget" | "review";
 type MediaItem = {
@@ -1357,7 +1358,13 @@ function BasicsStep({
               {searchingDestination ? (
                 <p className="location-search-status">Searching locations...</p>
               ) : destinationError ? (
-                <p className="location-search-error" role="alert">{destinationError}</p>
+                <FeedbackMessage
+                  className="location-search-error feedback-message-compact"
+                  title="Location unavailable"
+                  variant="error"
+                >
+                  {destinationError}
+                </FeedbackMessage>
               ) : destinationOptions.length ? (
                 destinationOptions.map((place) => (
                   <button

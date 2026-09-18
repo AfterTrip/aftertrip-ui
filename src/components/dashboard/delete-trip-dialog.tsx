@@ -4,6 +4,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { Trash2, X } from "lucide-react";
 import { useState } from "react";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/user-facing-errors";
+import { FeedbackMessage } from "@/components/ui/feedback-message";
 
 type DeleteTripDialogProps = {
   tripTitle: string;
@@ -62,7 +63,15 @@ export function DeleteTripDialog({
             <strong>{tripTitle || "Untitled trip"}</strong> and its published page will be
             permanently removed. This cannot be undone.
           </Dialog.Description>
-          {error ? <p className="delete-trip-error" role="alert">{error}</p> : null}
+          {error ? (
+            <FeedbackMessage
+              className="delete-trip-error feedback-message-compact"
+              title="Could not delete trip"
+              variant="error"
+            >
+              {error}
+            </FeedbackMessage>
+          ) : null}
           <div className="delete-trip-dialog-actions">
             <Dialog.Close type="button" disabled={deleting}>Cancel</Dialog.Close>
             <button type="button" disabled={deleting} onClick={() => void confirmDelete()}>

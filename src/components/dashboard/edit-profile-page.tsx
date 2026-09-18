@@ -23,6 +23,7 @@ import { GENERIC_ERROR_MESSAGE } from "@/lib/user-facing-errors";
 import { AccountMenu } from "@/components/layout/account-menu";
 import { DashboardBottomNavigation } from "@/components/dashboard/dashboard-bottom-navigation";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { FeedbackMessage } from "@/components/ui/feedback-message";
 
 const sidebarItems = [
   { label: "My Trips", href: "/dashboard", icon: Home },
@@ -63,6 +64,12 @@ export function EditProfilePage() {
       })
       .catch(() => setMessage(GENERIC_ERROR_MESSAGE));
   }, [authenticated]);
+
+  useEffect(() => {
+    if (message !== "Profile saved.") return;
+    const timeout = window.setTimeout(() => setMessage(""), 3600);
+    return () => window.clearTimeout(timeout);
+  }, [message]);
 
   const changePhoto = async (file?: File) => {
     if (!file) return;
@@ -229,7 +236,17 @@ export function EditProfilePage() {
                 {saving ? "Saving..." : "Save changes"}
               </button>
             </div>
-            {message ? <p className="profile-edit-message" role="status">{message}</p> : null}
+            {message ? (
+              <FeedbackMessage
+                className="profile-edit-message feedback-message-inline"
+                title={message === "Profile saved." ? "Profile saved" : "Needs attention"}
+                variant={message === "Profile saved." ? "success" : "error"}
+              >
+                {message === "Profile saved."
+                  ? "Your profile details are up to date."
+                  : message}
+              </FeedbackMessage>
+            ) : null}
           </form>
         </section>
       </div>

@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { FeedbackMessage } from "@/components/ui/feedback-message";
 import { IconButton } from "@/components/ui/icon-button";
 import {
   exploreCategories
@@ -689,7 +690,13 @@ export function ExploreClient({
             {loading && visibleTrips.length === 0 ? (
               <p className="empty-results">Loading real journeys...</p>
             ) : loadError ? (
-              <p className="empty-results" role="alert">{loadError}</p>
+              <FeedbackMessage
+                className="explore-feedback feedback-message-grid"
+                title="Trips unavailable"
+                variant="error"
+              >
+                {loadError}
+              </FeedbackMessage>
             ) : visibleTrips.length > 0 ? (
               visibleTrips.map((trip) => (
                 <ExploreTripCard trip={trip} key={trip.slug} />

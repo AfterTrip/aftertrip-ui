@@ -20,6 +20,7 @@ import {
 import { getOwnProfile } from "@/lib/aftertrip-api";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/user-facing-errors";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { FeedbackMessage } from "@/components/ui/feedback-message";
 
 interface GoogleCredentialResponse {
   credential: string;
@@ -174,12 +175,13 @@ export function AuthPage() {
 
   const renderAuthStatus = () =>
     authMessage ? (
-      <p
-        className={`auth-status ${authStatus === "error" ? "is-error" : ""}`}
-        role={authStatus === "error" ? "alert" : "status"}
+      <FeedbackMessage
+        className="auth-status feedback-message-centered"
+        variant={authStatus === "error" ? "error" : "info"}
+        title={authStatus === "error" ? "Sign-in paused" : "Signing in"}
       >
         {authMessage}
-      </p>
+      </FeedbackMessage>
     ) : null;
 
   return (

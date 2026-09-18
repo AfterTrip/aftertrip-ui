@@ -11,6 +11,7 @@ import { getAuthenticationSession } from "@/lib/auth-client";
 import { initials } from "@/lib/api-adapters";
 import { useCarouselPagination } from "@/lib/use-carousel-pagination";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/user-facing-errors";
+import { FeedbackMessage } from "@/components/ui/feedback-message";
 
 export function TestimonialSection() {
   const router = useRouter();
@@ -52,6 +53,12 @@ export function TestimonialSection() {
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (!message || message === GENERIC_ERROR_MESSAGE) return;
+    const timeout = window.setTimeout(() => setMessage(""), 3600);
+    return () => window.clearTimeout(timeout);
+  }, [message]);
 
   const submitReview = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -151,9 +158,13 @@ export function TestimonialSection() {
                 : "Save Rating"}
           </button>
           {message ? (
-            <p className="community-review-message" role="status">
+            <FeedbackMessage
+              className="community-review-message feedback-message-inline"
+              title={message === GENERIC_ERROR_MESSAGE ? "Review not saved" : "Thanks for sharing"}
+              variant={message === GENERIC_ERROR_MESSAGE ? "error" : "success"}
+            >
               {message}
-            </p>
+            </FeedbackMessage>
           ) : null}
         </form>
         {reviews.length ? (

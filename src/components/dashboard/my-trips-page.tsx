@@ -32,6 +32,7 @@ import { AccountMenu } from "@/components/layout/account-menu";
 import { DeleteTripDialog } from "@/components/dashboard/delete-trip-dialog";
 import { DashboardBottomNavigation } from "@/components/dashboard/dashboard-bottom-navigation";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { FeedbackMessage } from "@/components/ui/feedback-message";
 
 type TripStatus = "published" | "draft";
 
@@ -350,7 +351,15 @@ export function MyTripsPage() {
             </div>
           </div>
 
-          {loadError ? <p className="dashboard-api-error" role="alert">{loadError}</p> : null}
+          {loadError ? (
+            <FeedbackMessage
+              className="dashboard-api-error feedback-message-inline"
+              title="Trips unavailable"
+              variant="error"
+            >
+              {loadError}
+            </FeedbackMessage>
+          ) : null}
           <div
             className="dashboard-trip-grid"
             role="list"
