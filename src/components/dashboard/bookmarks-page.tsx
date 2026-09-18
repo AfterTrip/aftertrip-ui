@@ -28,6 +28,7 @@ import { AccountMenu } from "@/components/layout/account-menu";
 import { DashboardBottomNavigation } from "@/components/dashboard/dashboard-bottom-navigation";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { FeedbackMessage } from "@/components/ui/feedback-message";
+import { DashboardTripGridSkeleton } from "@/components/ui/page-skeletons";
 
 const sidebarItems = [
   { label: "My Trips", href: "/dashboard", icon: Home },
@@ -47,17 +48,23 @@ export function BookmarksPage() {
     Array<ExploreTrip & { tripId: string }>
   >([]);
   const [removingTripId, setRemovingTripId] = useState<string>();
-  const [message, setMessage] = useState("Loading bookmarks...");
+  const [message, setMessage] = useState("");
+  const [loadingBookmarks, setLoadingBookmarks] = useState(true);
 
   useEffect(() => {
     if (!authenticated) return;
     let active = true;
+    setLoadingBookmarks(true);
+    setMessage("");
     getBookmarks()
       .then(async (page) => {
         const loaded = await Promise.all(
           page.content.map(async (bookmark) => {
             try {
-              return { tripId: bookmark.tripId, trip: await getPublicTripById(bookmark.tripId) };
+              return {
+                tripId: bookmark.tripId,
+                trip: await getPublicTripById(bookmark.tripId)
+              };
             } catch {
               await removeBookmark(bookmark.tripId).catch(() => undefined);
               return null;
@@ -73,10 +80,10 @@ export function BookmarksPage() {
         setBookmarkedTrips(
           trips.map(({ tripId, trip }) => ({
             ...apiTripToExploreTrip(
-                trip,
-                profiles.find((profile) => profile.userId === trip.ownerUserId),
-                engagement.find((item) => item.tripId === trip.id)
-              ),
+              trip,
+              profiles.find((profile) => profile.userId === trip.ownerUserId),
+              engagement.find((item) => item.tripId === trip.id)
+            ),
             tripId
           }))
         );
@@ -84,6 +91,9 @@ export function BookmarksPage() {
       })
       .catch(() => {
         if (active) setMessage(GENERIC_ERROR_MESSAGE);
+      })
+      .finally(() => {
+        if (active) setLoadingBookmarks(false);
       });
     return () => {
       active = false;
@@ -91,7 +101,12 @@ export function BookmarksPage() {
   }, [authenticated]);
 
   useEffect(() => {
-    if (!message || message === GENERIC_ERROR_MESSAGE || bookmarkedTrips.length === 0) return;
+    if (
+      !message ||
+      message === GENERIC_ERROR_MESSAGE ||
+      bookmarkedTrips.length === 0
+    )
+      return;
     const timeout = window.setTimeout(() => setMessage(""), 3600);
     return () => window.clearTimeout(timeout);
   }, [bookmarkedTrips.length, message]);
@@ -100,7 +115,9 @@ export function BookmarksPage() {
     setRemovingTripId(tripId);
     try {
       await removeBookmark(tripId);
-      const remaining = bookmarkedTrips.filter((trip) => trip.tripId !== tripId);
+      const remaining = bookmarkedTrips.filter(
+        (trip) => trip.tripId !== tripId
+      );
       setBookmarkedTrips(remaining);
       if (!remaining.length) setMessage("No bookmarked trips yet.");
     } catch {
@@ -178,60 +195,74 @@ export function BookmarksPage() {
           </div>
 
           <div className="dashboard-trip-grid" aria-label="Bookmarked trips">
-            {message ? (
+            {loadingBookmarks ? (
+              <DashboardTripGridSkeleton count={4} />
+            ) : message ? (
               <FeedbackMessage
                 className="dashboard-api-message feedback-message-grid"
-                title={message === GENERIC_ERROR_MESSAGE ? "Could not update bookmarks" : "Bookmarks"}
+                title={
+                  message === GENERIC_ERROR_MESSAGE
+                    ? "Could not update bookmarks"
+                    : "Bookmarks"
+                }
                 variant={message === GENERIC_ERROR_MESSAGE ? "error" : "info"}
               >
                 {message}
               </FeedbackMessage>
             ) : null}
-            {bookmarkedTrips.map((trip) => (
-              <article
-                className="dashboard-trip-card dashboard-bookmark-card"
-                key={trip.tripId}
-              >
-                <Link className="dashboard-trip-image" href={`/trips/${trip.slug}`}>
-                  <Image
-                    src={trip.image.src}
-                    alt={trip.image.alt}
-                    fill
-                    sizes="(max-width: 767px) 116px, (max-width: 1199px) 50vw, 360px"
-                  />
-                  <span>Bookmarked</span>
-                </Link>
-                <span className="dashboard-trip-body">
-                  <span className="dashboard-trip-title-row">
-                    <Link href={`/trips/${trip.slug}`}><h2>{trip.title}</h2></Link>
-                    <button
-                      className="dashboard-bookmark-remove"
-                      type="button"
-                      disabled={removingTripId === trip.tripId}
-                      onClick={() => void undoBookmark(trip.tripId)}
-                      aria-label={`Remove bookmark for ${trip.title}`}
-                    >
-                      <BookmarkX aria-hidden="true" size={17} />
-                      {removingTripId === trip.tripId ? "Removing..." : "Remove"}
-                    </button>
-                  </span>
-                  <p>
-                    {trip.place} • {trip.duration} • {trip.group}
-                  </p>
-                  <p className="dashboard-location">{trip.country}</p>
-                  <span className="dashboard-trip-meta">
-                    <span>
-                      <Eye aria-hidden="true" size={16} />
-                      {trip.views} views
+            {!loadingBookmarks &&
+              bookmarkedTrips.map((trip) => (
+                <article
+                  className="dashboard-trip-card dashboard-bookmark-card"
+                  key={trip.tripId}
+                >
+                  <Link
+                    className="dashboard-trip-image"
+                    href={`/trips/${trip.slug}`}
+                  >
+                    <Image
+                      src={trip.image.src}
+                      alt={trip.image.alt}
+                      fill
+                      sizes="(max-width: 767px) 116px, (max-width: 1199px) 50vw, 360px"
+                    />
+                    <span>Bookmarked</span>
+                  </Link>
+                  <span className="dashboard-trip-body">
+                    <span className="dashboard-trip-title-row">
+                      <Link href={`/trips/${trip.slug}`}>
+                        <h2>{trip.title}</h2>
+                      </Link>
+                      <button
+                        className="dashboard-bookmark-remove"
+                        type="button"
+                        disabled={removingTripId === trip.tripId}
+                        onClick={() => void undoBookmark(trip.tripId)}
+                        aria-label={`Remove bookmark for ${trip.title}`}
+                      >
+                        <BookmarkX aria-hidden="true" size={17} />
+                        {removingTripId === trip.tripId
+                          ? "Removing..."
+                          : "Remove"}
+                      </button>
                     </span>
-                    <span>
-                      <Heart aria-hidden="true" size={16} />
-                      {trip.likes} likes
+                    <p>
+                      {trip.place} • {trip.duration} • {trip.group}
+                    </p>
+                    <p className="dashboard-location">{trip.country}</p>
+                    <span className="dashboard-trip-meta">
+                      <span>
+                        <Eye aria-hidden="true" size={16} />
+                        {trip.views} views
+                      </span>
+                      <span>
+                        <Heart aria-hidden="true" size={16} />
+                        {trip.likes} likes
+                      </span>
                     </span>
                   </span>
-                </span>
-              </article>
-            ))}
+                </article>
+              ))}
           </div>
         </section>
       </div>

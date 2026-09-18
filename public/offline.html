@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0b2f2b" />
+    <title>AfterTrip is offline</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #092f2a;
+        --muted: #5e6c68;
+        --paper: #f7f5f0;
+        --panel: #ffffff;
+        --accent: #20bfa6;
+        --border: rgba(9, 47, 42, 0.14);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        min-height: 100vh;
+        margin: 0;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        color: var(--ink);
+        background:
+          linear-gradient(
+            180deg,
+            rgba(255, 255, 255, 0.78),
+            rgba(247, 245, 240, 0.95)
+          ),
+          var(--paper);
+        font-family:
+          Inter,
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+      }
+
+      main {
+        width: min(100%, 440px);
+        border: 1px solid var(--border);
+        border-radius: 24px;
+        padding: 34px 28px;
+        background: var(--panel);
+        box-shadow: 0 24px 80px rgba(9, 47, 42, 0.12);
+        text-align: center;
+      }
+
+      img {
+        width: 76px;
+        height: 76px;
+        border-radius: 22px;
+        margin-bottom: 22px;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(2rem, 9vw, 3rem);
+        line-height: 1;
+        letter-spacing: 0;
+      }
+
+      p {
+        margin: 16px auto 0;
+        max-width: 34ch;
+        color: var(--muted);
+        font-size: 1rem;
+        line-height: 1.55;
+      }
+
+      a {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 48px;
+        margin-top: 24px;
+        padding: 0 22px;
+        border-radius: 999px;
+        background: var(--accent);
+        color: #041c18;
+        font-weight: 800;
+        text-decoration: none;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <img src="/brand/aftertrip-pwa-icon-192.png" alt="" />
+      <h1>You’re offline</h1>
+      <p>
+        AfterTrip needs a connection for live trips, profiles, photos, and
+        updates. Reconnect and refresh when you are back online.
+      </p>
+      <a href="/">Try again</a>
+    </main>
+  </body>
+</html>

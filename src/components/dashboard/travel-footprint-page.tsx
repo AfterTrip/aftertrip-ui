@@ -31,6 +31,7 @@ import { AccountMenu } from "@/components/layout/account-menu";
 import { DashboardBottomNavigation } from "@/components/dashboard/dashboard-bottom-navigation";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { FeedbackMessage } from "@/components/ui/feedback-message";
+import { FootprintContentSkeleton } from "@/components/ui/page-skeletons";
 
 const profilePhoto = "";
 const DEFAULT_TRIP_COVER = "/images/hero/mountain-lake-traveler.png";
@@ -121,7 +122,12 @@ export function TravelFootprintPage() {
           footprint.travelDna.slice(0, 5).map((item) => ({
             label: titleCaseEnum(item.key),
             value: item.percentage,
-            icon: item.key === "BEACH" ? Waves : item.key === "NATURE" ? Leaf : Mountain
+            icon:
+              item.key === "BEACH"
+                ? Waves
+                : item.key === "NATURE"
+                  ? Leaf
+                  : Mountain
           }))
         );
         setUnlocked(
@@ -251,12 +257,11 @@ export function TravelFootprintPage() {
           aria-labelledby="footprint-title"
         >
           {!loaded && !message ? (
-            <section className="footprint-loading-card" aria-live="polite">
+            <section aria-labelledby="footprint-title">
               <h1 id="footprint-title" className="sr-only">
                 Travel Footprint
               </h1>
-              <strong>Loading your travel footprint...</strong>
-              <span>Getting your latest profile and published trip map.</span>
+              <FootprintContentSkeleton />
             </section>
           ) : (
             <>
@@ -272,20 +277,29 @@ export function TravelFootprintPage() {
                 <div>
                   <span
                     className={`footprint-avatar${profile.avatar ? " has-photo" : " profile-initials"}`}
-                    style={profile.avatar ? { backgroundImage: "url(" + profile.avatar + ")" } : undefined}
+                    style={
+                      profile.avatar
+                        ? { backgroundImage: "url(" + profile.avatar + ")" }
+                        : undefined
+                    }
                     aria-hidden="true"
                   >
-                    {profile.avatar ? null : profile.name.slice(0, 1).toUpperCase()}
+                    {profile.avatar
+                      ? null
+                      : profile.name.slice(0, 1).toUpperCase()}
                   </span>
                   <div>
                     <h1 id="footprint-title">
-                      {profile.name} <ShieldCheck aria-hidden="true" size={20} />
+                      {profile.name}{" "}
+                      <ShieldCheck aria-hidden="true" size={20} />
                     </h1>
                     <p>
                       <MapPin aria-hidden="true" size={17} />
                       {profile.location || "Location not shared"}
                     </p>
-                    {profile.tagline ? <strong>{profile.tagline}</strong> : null}
+                    {profile.tagline ? (
+                      <strong>{profile.tagline}</strong>
+                    ) : null}
                   </div>
                 </div>
               </section>
@@ -315,7 +329,9 @@ export function TravelFootprintPage() {
                   <div className="footprint-section-heading">
                     <div>
                       <h2>Travel Footprint</h2>
-                      <p>Coordinates from verified destinations in your trips.</p>
+                      <p>
+                        Coordinates from verified destinations in your trips.
+                      </p>
                     </div>
                   </div>
                   {message ? (
@@ -330,7 +346,10 @@ export function TravelFootprintPage() {
                   <FootprintMap places={places} />
                 </section>
 
-                <aside className="footprint-insights" aria-label="Travel insights">
+                <aside
+                  className="footprint-insights"
+                  aria-label="Travel insights"
+                >
                   <section className="footprint-card">
                     <h2>Travel DNA</h2>
                     <p>Your travel personality from published trips.</p>
@@ -344,7 +363,9 @@ export function TravelFootprintPage() {
                             <strong>{item.value}%</strong>
                             <i
                               style={
-                                { "--bar-value": `${item.value}%` } as CSSProperties
+                                {
+                                  "--bar-value": `${item.value}%`
+                                } as CSSProperties
                               }
                             />
                           </article>

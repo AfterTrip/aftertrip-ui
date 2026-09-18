@@ -66,8 +66,34 @@ export const defaultMetadata: Metadata = {
     images: [SITE_SHARE_IMAGE]
   },
   icons: {
-    icon: "/brand/aftertrip-icon.png",
-    apple: "/brand/aftertrip-icon.png"
+    icon: [
+      { url: "/brand/favicon.svg", type: "image/svg+xml" },
+      {
+        url: "/brand/aftertrip-pwa-icon-192.png",
+        sizes: "192x192",
+        type: "image/png"
+      },
+      {
+        url: "/brand/aftertrip-pwa-icon-512.png",
+        sizes: "512x512",
+        type: "image/png"
+      }
+    ],
+    apple: [
+      {
+        url: "/brand/apple-touch-icon.png",
+        sizes: "180x180",
+        type: "image/png"
+      }
+    ]
+  },
+  appleWebApp: {
+    capable: true,
+    title: SITE_NAME,
+    statusBarStyle: "default"
+  },
+  formatDetection: {
+    telephone: false
   },
   manifest: "/manifest.webmanifest"
 };

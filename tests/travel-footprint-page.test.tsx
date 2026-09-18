@@ -141,7 +141,7 @@ describe("Travel Footprint page", () => {
     render(<TravelFootprintPage />);
 
     expect(
-      screen.getByText("Loading your travel footprint...")
+      screen.getByRole("status", { name: "Loading travel footprint" })
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("heading", { name: /^Traveler$/ })

@@ -1,4 +1,5 @@
 import Image from "next/image";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -25,7 +26,13 @@ import {
   publicMediaUrl
 } from "@/lib/aftertrip-api";
 import { formatCount, titleCaseEnum } from "@/lib/formatters";
-import { SITE_NAME } from "@/lib/constants";
+import {
+  SITE_NAME,
+  SITE_SHARE_IMAGE,
+  SITE_SHARE_IMAGE_HEIGHT,
+  SITE_SHARE_IMAGE_WIDTH,
+  SITE_URL
+} from "@/lib/constants";
 
 const PUBLIC_PROFILE_COVER = "/images/hero/mountain-lake-traveler.png";
 
@@ -35,41 +42,63 @@ type TravelerProfilePageProps = {
 
 export const dynamic = "force-dynamic";
 
-export async function generateMetadata({ params }: TravelerProfilePageProps) {
+function profileShareDescription(
+  profile: Awaited<ReturnType<typeof loadPublicProfile>>
+) {
+  const location = profile.location ? ` from ${profile.location}` : "";
+  return `${profile.displayName}${location} shares real trips, destinations, and a travel footprint on ${SITE_NAME}.`;
+}
+
+export async function generateMetadata({
+  params
+}: TravelerProfilePageProps): Promise<Metadata> {
   const { slug } = await params;
   const profile = await loadPublicProfile(slug).catch(() => null);
-  const description = profile?.tagline ?? "Traveler profile on AfterTrip.";
-  const image = profile ? PUBLIC_PROFILE_COVER : undefined;
+  const description = profile
+    ? profileShareDescription(profile)
+    : `Traveler profile on ${SITE_NAME}.`;
+  const title = profile
+    ? `${profile.displayName} on ${SITE_NAME}`
+    : `Traveler on ${SITE_NAME}`;
+  const url = `${SITE_URL}/travelers/${slug}`;
 
   return {
-    title: profile
-      ? `${profile.displayName} | AfterTrip`
-      : "Traveler | AfterTrip",
+    title,
     description,
-    alternates: { canonical: `/travelers/${slug}` },
+    alternates: { canonical: url },
     openGraph: {
-      title: profile
-        ? `${profile.displayName} on ${SITE_NAME}`
-        : `Traveler on ${SITE_NAME}`,
+      title,
       description,
-      url: `/travelers/${slug}`,
+      url,
+      siteName: SITE_NAME,
       type: "profile",
-      images: image
-        ? [
-            {
-              url: image,
-              alt: `${profile?.displayName ?? "Traveler"} on AfterTrip`
-            }
-          ]
-        : []
+      images: [
+        {
+          url: SITE_SHARE_IMAGE,
+          secureUrl: SITE_SHARE_IMAGE,
+          width: SITE_SHARE_IMAGE_WIDTH,
+          height: SITE_SHARE_IMAGE_HEIGHT,
+          type: "image/jpeg",
+          alt: `${SITE_NAME} traveler profile preview`
+        }
+      ]
     },
     twitter: {
       card: "summary_large_image",
-      title: profile
-        ? `${profile.displayName} on ${SITE_NAME}`
-        : `Traveler on ${SITE_NAME}`,
+      title,
       description,
-      images: image ? [image] : []
+      images: [
+        {
+          url: SITE_SHARE_IMAGE,
+          alt: `${SITE_NAME} traveler profile preview`
+        }
+      ]
+    },
+    other: {
+      "og:image:secure_url": SITE_SHARE_IMAGE,
+      "og:image:width": String(SITE_SHARE_IMAGE_WIDTH),
+      "og:image:height": String(SITE_SHARE_IMAGE_HEIGHT),
+      "og:image:type": "image/jpeg"
     }
   };
 }
@@ -204,7 +233,7 @@ export default async function TravelerProfilePage({
                   <MapPin aria-hidden="true" size={17} />
                   {profile.location}
                 </p>
-                <span>{profile.tagline}</span>
+                <span className="profile-tagline">{profile.tagline}</span>
               </div>
             </div>
             <SharePageButton

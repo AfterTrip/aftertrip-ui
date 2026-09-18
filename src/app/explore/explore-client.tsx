@@ -20,9 +20,8 @@ import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { FeedbackMessage } from "@/components/ui/feedback-message";
 import { IconButton } from "@/components/ui/icon-button";
-import {
-  exploreCategories
-} from "@/data/explore-categories";
+import { ExploreTripGridSkeleton } from "@/components/ui/page-skeletons";
+import { exploreCategories } from "@/data/explore-categories";
 import type { ExploreTrip, TripGroup, TripStyle } from "@/types/explore-trip";
 import {
   getProfiles,
@@ -102,9 +101,12 @@ const toApiEnum = (value: string) =>
   value.trim().toUpperCase().replaceAll(" ", "_");
 
 function durationBounds(duration: string) {
-  if (duration === "1-3 days") return { minDurationDays: 1, maxDurationDays: 3 };
-  if (duration === "4-7 days") return { minDurationDays: 4, maxDurationDays: 7 };
-  if (duration === "8-14 days") return { minDurationDays: 8, maxDurationDays: 14 };
+  if (duration === "1-3 days")
+    return { minDurationDays: 1, maxDurationDays: 3 };
+  if (duration === "4-7 days")
+    return { minDurationDays: 4, maxDurationDays: 7 };
+  if (duration === "8-14 days")
+    return { minDurationDays: 8, maxDurationDays: 14 };
   if (duration === "15+ days") return { minDurationDays: 15 };
   return {};
 }
@@ -121,7 +123,12 @@ async function loadTripPool(
   visibleCount: number
 ) {
   const apiSort = sort === "Oldest" ? "OLDEST" : "NEWEST";
-  const first = await searchTrips({ ...search, sort: apiSort, page: 0, size: 50 });
+  const first = await searchTrips({
+    ...search,
+    sort: apiSort,
+    page: 0,
+    size: 50
+  });
   const pagesNeeded =
     sort === "Popular"
       ? first.totalPages
@@ -260,9 +267,9 @@ export function ExploreClient({
   useEffect(() => {
     let active = true;
     const timer = window.setTimeout(() => {
-    const activeCategoryConfig = exploreCategories.find(
-      (category) => category.label === activeCategory
-    );
+      const activeCategoryConfig = exploreCategories.find(
+        (category) => category.label === activeCategory
+      );
       const requestedStyles = [
         ...selectedStyles,
         ...(activeCategoryConfig?.style ? [activeCategoryConfig.style] : [])
@@ -280,15 +287,21 @@ export function ExploreClient({
       loadTripPool(filters, sortBy, visibleCount)
         .then(async (page) => {
           const tripIds = page.content.map((trip) => trip.tripId);
-          const ownerIds = [...new Set(page.content.map((trip) => trip.ownerUserId))];
+          const ownerIds = [
+            ...new Set(page.content.map((trip) => trip.ownerUserId))
+          ];
           const [profileBatches, engagementBatches] = await Promise.all([
             Promise.all(batches(ownerIds, 50).map((ids) => getProfiles(ids))),
-            Promise.all(batches(tripIds, 50).map((ids) => getTripEngagement(ids)))
+            Promise.all(
+              batches(tripIds, 50).map((ids) => getTripEngagement(ids))
+            )
           ]);
           if (!active) return;
           const profiles = profileBatches.flat();
           const engagement = engagementBatches.flat();
-          const engagementFor = (trip: ApiDiscoveryTrip): ApiTripEngagement | undefined =>
+          const engagementFor = (
+            trip: ApiDiscoveryTrip
+          ): ApiTripEngagement | undefined =>
             engagement.find((item) => item.tripId === trip.tripId);
           const ordered =
             sortBy === "Popular"
@@ -688,7 +701,7 @@ export function ExploreClient({
             }
           >
             {loading && visibleTrips.length === 0 ? (
-              <p className="empty-results">Loading real journeys...</p>
+              <ExploreTripGridSkeleton count={6} />
             ) : loadError ? (
               <FeedbackMessage
                 className="explore-feedback feedback-message-grid"

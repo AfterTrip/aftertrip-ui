@@ -1,4 +1,6 @@
-export const SITE_URL = "https://www.after-trip.com";
+export const SITE_URL = (
+  process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.after-trip.com"
+).replace(/\/$/, "");
 export const SITE_NAME = "AfterTrip";
 export const SITE_TAGLINE = "Real journeys. Beautifully shared.";
 export const SITE_DESCRIPTION =

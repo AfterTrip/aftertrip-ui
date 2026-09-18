@@ -33,6 +33,7 @@ import { DeleteTripDialog } from "@/components/dashboard/delete-trip-dialog";
 import { DashboardBottomNavigation } from "@/components/dashboard/dashboard-bottom-navigation";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { FeedbackMessage } from "@/components/ui/feedback-message";
+import { DashboardTripGridSkeleton } from "@/components/ui/page-skeletons";
 
 type TripStatus = "published" | "draft";
 
@@ -69,15 +70,23 @@ export function MyTripsPage() {
   const [trips, setTrips] = useState<MyTrip[]>([]);
   const [profileViews, setProfileViews] = useState(0);
   const [loadError, setLoadError] = useState("");
+  const [loadingTrips, setLoadingTrips] = useState(true);
 
   useEffect(() => {
     if (!authenticated) return;
     let active = true;
     const ownedCoverUrls: string[] = [];
     void (async () => {
+      setLoadingTrips(true);
+      setLoadError("");
       try {
-        const [tripPage, views] = await Promise.all([getMyTrips(), getOwnProfileViews()]);
-        const published = tripPage.content.filter((trip) => trip.status === "PUBLISHED");
+        const [tripPage, views] = await Promise.all([
+          getMyTrips(),
+          getOwnProfileViews()
+        ]);
+        const published = tripPage.content.filter(
+          (trip) => trip.status === "PUBLISHED"
+        );
         const [engagement, draftCoverEntries] = await Promise.all([
           getTripEngagement(published.map((trip) => trip.id)),
           Promise.all(
@@ -97,7 +106,9 @@ export function MyTripsPage() {
         ]);
         if (!active) return;
         const draftCovers = new globalThis.Map(
-          draftCoverEntries.filter((entry): entry is readonly [string, string] => entry !== null)
+          draftCoverEntries.filter(
+            (entry): entry is readonly [string, string] => entry !== null
+          )
         );
         setProfileViews(views.views);
         setTrips(
@@ -109,13 +120,18 @@ export function MyTripsPage() {
               title: trip.title || "Untitled trip",
               status: trip.status === "PUBLISHED" ? "published" : "draft",
               image:
-                (trip.status === "DRAFT" ? draftCovers.get(trip.id) : undefined) ??
-                (trip.status === "PUBLISHED" ? publicMediaUrl(trip.coverMediaId) : undefined) ??
+                (trip.status === "DRAFT"
+                  ? draftCovers.get(trip.id)
+                  : undefined) ??
+                (trip.status === "PUBLISHED"
+                  ? publicMediaUrl(trip.coverMediaId)
+                  : undefined) ??
                 DEFAULT_TRIP_COVER,
               alt: `${trip.title || "Trip"} cover photo`,
               date: formatTripDates(trip.startDate, trip.endDate),
               days: trip.durationDays ? `${trip.durationDays} days` : undefined,
-              destination: trip.destination?.displayName || "Destination not set",
+              destination:
+                trip.destination?.displayName || "Destination not set",
               views: metrics?.views ?? 0,
               likes: metrics?.likes ?? 0,
               sortTimestamp: new Date(
@@ -127,6 +143,8 @@ export function MyTripsPage() {
         );
       } catch {
         if (active) setLoadError(GENERIC_ERROR_MESSAGE);
+      } finally {
+        if (active) setLoadingTrips(false);
       }
     })();
     return () => {
@@ -148,7 +166,12 @@ export function MyTripsPage() {
       caption: "Unpublished",
       icon: Pencil
     },
-    { label: "Views", value: formatCount(profileViews), caption: "Profile", icon: Eye }
+    {
+      label: "Views",
+      value: formatCount(profileViews),
+      caption: "Profile",
+      icon: Eye
+    }
   ];
 
   const visibleTrips = useMemo(() => {
@@ -278,19 +301,42 @@ export function MyTripsPage() {
               className="dashboard-summary-card"
               aria-label="Trip account summary"
             >
-              {summary.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <article key={item.label}>
-                    <span>
-                      <Icon aria-hidden="true" size={24} />
-                    </span>
-                    <strong>{item.value}</strong>
-                    <p>{item.label}</p>
-                    <small>{item.caption}</small>
+              {loadingTrips ? (
+                <>
+                  <article className="dashboard-summary-skeleton">
+                    <span />
+                    <strong />
+                    <p />
+                    <small />
                   </article>
-                );
-              })}
+                  <article className="dashboard-summary-skeleton">
+                    <span />
+                    <strong />
+                    <p />
+                    <small />
+                  </article>
+                  <article className="dashboard-summary-skeleton">
+                    <span />
+                    <strong />
+                    <p />
+                    <small />
+                  </article>
+                </>
+              ) : (
+                summary.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <article key={item.label}>
+                      <span>
+                        <Icon aria-hidden="true" size={24} />
+                      </span>
+                      <strong>{item.value}</strong>
+                      <p>{item.label}</p>
+                      <small>{item.caption}</small>
+                    </article>
+                  );
+                })
+              )}
             </div>
           </div>
 
@@ -366,9 +412,15 @@ export function MyTripsPage() {
             aria-label="My trip results"
             aria-live="polite"
           >
-            {visibleTrips.length ? (
+            {loadingTrips ? (
+              <DashboardTripGridSkeleton count={6} />
+            ) : visibleTrips.length ? (
               visibleTrips.map((trip) => (
-                <article className="dashboard-trip-card" role="listitem" key={trip.id}>
+                <article
+                  className="dashboard-trip-card"
+                  role="listitem"
+                  key={trip.id}
+                >
                   <div className="dashboard-trip-image">
                     {trip.status === "published" ? (
                       <Link

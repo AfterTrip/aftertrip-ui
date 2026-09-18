@@ -2,15 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import {
-  Bookmark,
-  Home,
-  ImageUp,
-  Map,
-  Pencil,
-  Plus,
-  User
-} from "lucide-react";
+import { Bookmark, Home, ImageUp, Map, Pencil, Plus, User } from "lucide-react";
 import { type FormEvent, useEffect, useState } from "react";
 import {
   getOwnProfile,
@@ -24,6 +16,7 @@ import { AccountMenu } from "@/components/layout/account-menu";
 import { DashboardBottomNavigation } from "@/components/dashboard/dashboard-bottom-navigation";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { FeedbackMessage } from "@/components/ui/feedback-message";
+import { ProfileEditSkeleton } from "@/components/ui/page-skeletons";
 
 const sidebarItems = [
   { label: "My Trips", href: "/dashboard", icon: Home },
@@ -46,10 +39,12 @@ export function EditProfilePage() {
   const [profilePhoto, setProfilePhoto] = useState("");
   const [saving, setSaving] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [loadingProfile, setLoadingProfile] = useState(true);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
     if (!authenticated) return;
+    setLoadingProfile(true);
     getOwnProfile()
       .then((profile) => {
         setName(profile.displayName);
@@ -57,12 +52,11 @@ export function EditProfilePage() {
         setTagline(profile.tagline ?? "");
         setAvatarMediaId(profile.avatarMediaId ?? null);
         setProfilePhoto(
-          publicMediaUrl(profile.avatarMediaId) ??
-            profile.avatarUrl ??
-            ""
+          publicMediaUrl(profile.avatarMediaId) ?? profile.avatarUrl ?? ""
         );
       })
-      .catch(() => setMessage(GENERIC_ERROR_MESSAGE));
+      .catch(() => setMessage(GENERIC_ERROR_MESSAGE))
+      .finally(() => setLoadingProfile(false));
   }, [authenticated]);
 
   useEffect(() => {
@@ -169,85 +163,108 @@ export function EditProfilePage() {
           className="dashboard-content profile-edit-content"
           aria-labelledby="profile-edit-title"
         >
-          <form className="profile-edit-card" aria-label="Edit profile form" onSubmit={saveProfile}>
-            <div className="profile-edit-preview">
-              <span
-                className={profilePhoto ? "has-photo" : "profile-initials"}
-                style={profilePhoto ? { backgroundImage: "url(" + profilePhoto + ")" } : undefined}
-              >
-                {profilePhoto ? null : (name || "Traveler").slice(0, 1).toUpperCase()}
-              </span>
-              <div>
-                <strong>{name || "Traveler"}</strong>
-                {location ? <small>{location}</small> : null}
-                {tagline ? <p>{tagline}</p> : null}
-              </div>
-              <label className="profile-photo-control">
-                <ImageUp aria-hidden="true" size={19} />
-                <span>
-                  <strong>{uploadingPhoto ? "Uploading..." : "Change photo"}</strong>
-                  <small>JPG, PNG or WebP</small>
+          <h1 id="profile-edit-title" className="sr-only">
+            Edit Profile
+          </h1>
+          {loadingProfile ? (
+            <ProfileEditSkeleton />
+          ) : (
+            <form
+              className="profile-edit-card"
+              aria-label="Edit profile form"
+              onSubmit={saveProfile}
+            >
+              <div className="profile-edit-preview">
+                <span
+                  className={profilePhoto ? "has-photo" : "profile-initials"}
+                  style={
+                    profilePhoto
+                      ? { backgroundImage: "url(" + profilePhoto + ")" }
+                      : undefined
+                  }
+                >
+                  {profilePhoto
+                    ? null
+                    : (name || "Traveler").slice(0, 1).toUpperCase()}
                 </span>
+                <div>
+                  <strong>{name || "Traveler"}</strong>
+                  {location ? <small>{location}</small> : null}
+                  {tagline ? <p>{tagline}</p> : null}
+                </div>
+                <label className="profile-photo-control">
+                  <ImageUp aria-hidden="true" size={19} />
+                  <span>
+                    <strong>
+                      {uploadingPhoto ? "Uploading..." : "Change photo"}
+                    </strong>
+                    <small>JPG, PNG or WebP</small>
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    disabled={uploadingPhoto}
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      event.target.value = "";
+                      void changePhoto(file);
+                    }}
+                  />
+                </label>
+              </div>
+              <label>
+                <span>Name</span>
                 <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  disabled={uploadingPhoto}
-                  onChange={(event) => {
-                    const file = event.target.files?.[0];
-                    event.target.value = "";
-                    void changePhoto(file);
-                  }}
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  placeholder="Enter your name"
                 />
               </label>
-            </div>
-            <label>
-              <span>Name</span>
-              <input
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                placeholder="Enter your name"
-              />
-            </label>
-            <label>
-              <span>
-                Location <em>(optional)</em>
-              </span>
-              <input
-                value={location}
-                onChange={(event) => setLocation(event.target.value)}
-                placeholder="e.g. Kochi, Kerala, India"
-              />
-            </label>
-            <label>
-              <span>
-                Tagline <em>(optional)</em>
-              </span>
-              <input
-                value={tagline}
-                onChange={(event) => setTagline(event.target.value)}
-                placeholder="A short line about how you travel"
-                maxLength={90}
-              />
-            </label>
-            <div className="profile-edit-actions">
-              <Link href="/dashboard">Cancel</Link>
-              <button type="submit" disabled={saving}>
-                <Pencil aria-hidden="true" size={18} />
-                {saving ? "Saving..." : "Save changes"}
-              </button>
-            </div>
-            {message ? (
-              <FeedbackMessage
-                className="profile-edit-message feedback-message-inline"
-                title={message === "Profile saved." ? "Profile saved" : "Needs attention"}
-                variant={message === "Profile saved." ? "success" : "error"}
-              >
-                {message === "Profile saved."
-                  ? "Your profile details are up to date."
-                  : message}
-              </FeedbackMessage>
-            ) : null}
-          </form>
+              <label>
+                <span>
+                  Location <em>(optional)</em>
+                </span>
+                <input
+                  value={location}
+                  onChange={(event) => setLocation(event.target.value)}
+                  placeholder="e.g. Kochi, Kerala, India"
+                />
+              </label>
+              <label>
+                <span>
+                  Tagline <em>(optional)</em>
+                </span>
+                <input
+                  value={tagline}
+                  onChange={(event) => setTagline(event.target.value)}
+                  placeholder="A short line about how you travel"
+                  maxLength={90}
+                />
+              </label>
+              <div className="profile-edit-actions">
+                <Link href="/dashboard">Cancel</Link>
+                <button type="submit" disabled={saving}>
+                  <Pencil aria-hidden="true" size={18} />
+                  {saving ? "Saving..." : "Save changes"}
+                </button>
+              </div>
+              {message ? (
+                <FeedbackMessage
+                  className="profile-edit-message feedback-message-inline"
+                  title={
+                    message === "Profile saved."
+                      ? "Profile saved"
+                      : "Needs attention"
+                  }
+                  variant={message === "Profile saved." ? "success" : "error"}
+                >
+                  {message === "Profile saved."
+                    ? "Your profile details are up to date."
+                    : message}
+                </FeedbackMessage>
+              ) : null}
+            </form>
+          )}
         </section>
       </div>
 

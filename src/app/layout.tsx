@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Cormorant_Garamond, Inter } from "next/font/google";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { SiteHeader } from "@/components/layout/site-header";
+import { PwaRegister } from "@/components/pwa/pwa-register";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/constants";
 import { defaultMetadata } from "@/lib/metadata";
 import "./globals.css";
@@ -23,7 +24,11 @@ export const metadata: Metadata = defaultMetadata;
 
 export const viewport: Viewport = {
   width: "device-width",
-  initialScale: 1
+  initialScale: 1,
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f7f5f0" },
+    { media: "(prefers-color-scheme: dark)", color: "#071820" }
+  ]
 };
 
 const structuredData = [
@@ -62,7 +67,9 @@ const structuredData = [
   }
 ];
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default function RootLayout({
+  children
+}: Readonly<{ children: React.ReactNode }>) {
   return (
     <html
       lang="en"
@@ -83,6 +90,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         />
       </head>
       <body>
+        <PwaRegister />
         <a className="skip-link" href="#main-content">
           Skip to content
         </a>

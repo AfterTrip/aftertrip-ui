@@ -26,7 +26,13 @@ import {
 } from "@/lib/aftertrip-api";
 import { initials } from "@/lib/api-adapters";
 import { titleCaseEnum } from "@/lib/formatters";
-import { SITE_NAME } from "@/lib/constants";
+import {
+  SITE_NAME,
+  SITE_SHARE_IMAGE,
+  SITE_SHARE_IMAGE_HEIGHT,
+  SITE_SHARE_IMAGE_WIDTH,
+  SITE_URL
+} from "@/lib/constants";
 
 const factIcons = [
   MapPin,
@@ -47,6 +53,24 @@ async function loadPublishedTrip(slugOrId: string) {
   return getPublicTrip(slugOrId).catch(() => getPublicTripById(slugOrId));
 }
 
+function tripShareTitle(trip: Awaited<ReturnType<typeof getPublicTrip>>) {
+  const destination = trip.destination?.name ?? trip.destination?.country;
+  return destination && trip.title
+    ? `${trip.title} in ${destination}`
+    : trip.title ?? "Traveler journey";
+}
+
+function tripShareDescription(trip: Awaited<ReturnType<typeof getPublicTrip>>) {
+  const details = [
+    trip.destination?.displayName,
+    trip.durationDays
+      ? `${trip.durationDays} ${trip.durationDays === 1 ? "day" : "days"}`
+      : null,
+    trip.tripGroup ? titleCaseEnum(trip.tripGroup) : null
+  ].filter(Boolean);
+  return `${details.join(" | ")}. Real trip details shared on ${SITE_NAME}.`;
+}
+
 export async function generateMetadata({
   params
 }: TripPageProps): Promise<Metadata> {
@@ -54,30 +78,48 @@ export async function generateMetadata({
   const trip = await loadPublishedTrip(slug).catch(() => null);
   if (!trip) return { title: `Trip | ${SITE_NAME}` };
 
-  const title = `${trip.title ?? "Traveler journey"} | ${SITE_NAME}`;
-  const description =
-    trip.summary ??
-    `A real journey to ${trip.destination?.displayName ?? "a new place"}.`;
-  const image = publicMediaUrl(trip.coverMediaId);
+  const title = `${tripShareTitle(trip)} | ${SITE_NAME}`;
+  const description = tripShareDescription(trip);
+  const url = `${SITE_URL}/trips/${slug}`;
   return {
     title,
     description,
-    alternates: { canonical: `/trips/${slug}` },
+    alternates: { canonical: url },
     openGraph: {
       title,
       description,
-      url: `/trips/${slug}`,
+      url,
       siteName: SITE_NAME,
       type: "article",
-      images: image
-        ? [{ url: image, alt: `${trip.title ?? "Trip"} cover photo` }]
-        : []
+      publishedTime: trip.publishedAt ?? undefined,
+      tags: trip.styles.map(titleCaseEnum),
+      images: [
+        {
+          url: SITE_SHARE_IMAGE,
+          secureUrl: SITE_SHARE_IMAGE,
+          width: SITE_SHARE_IMAGE_WIDTH,
+          height: SITE_SHARE_IMAGE_HEIGHT,
+          type: "image/jpeg",
+          alt: `${SITE_NAME} trip preview`
+        }
+      ]
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: image ? [image] : []
+      images: [
+        {
+          url: SITE_SHARE_IMAGE,
+          alt: `${SITE_NAME} trip preview`
+        }
+      ]
+    },
+    other: {
+      "og:image:secure_url": SITE_SHARE_IMAGE,
+      "og:image:width": String(SITE_SHARE_IMAGE_WIDTH),
+      "og:image:height": String(SITE_SHARE_IMAGE_HEIGHT),
+      "og:image:type": "image/jpeg"
     }
   };
 }
@@ -138,7 +180,7 @@ export default async function TripDetailPage({ params }: TripPageProps) {
           <TripActions
             title={trip.title}
             tripId={tripRecord.id}
-            shareText={`${trip.summary} ${trip.destination}`}
+            shareText={tripShareDescription(tripRecord)}
           />
         </div>
       </section>
