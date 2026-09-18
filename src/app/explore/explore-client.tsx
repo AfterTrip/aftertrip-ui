@@ -34,6 +34,7 @@ import {
   type TripStyle as ApiTripStyle
 } from "@/lib/aftertrip-api";
 import { discoveryTripToExploreTrip } from "@/lib/api-adapters";
+import { GENERIC_ERROR_MESSAGE } from "@/lib/user-facing-errors";
 
 const durationOptions = [
   "Any",
@@ -316,9 +317,7 @@ export function ExploreClient({
           if (!active) return;
           setTrips([]);
           setTotalTrips(0);
-          setLoadError(
-            "Trips could not load right now. Please try again shortly."
-          );
+          setLoadError(GENERIC_ERROR_MESSAGE);
         })
         .finally(() => {
           if (active) setLoading(false);

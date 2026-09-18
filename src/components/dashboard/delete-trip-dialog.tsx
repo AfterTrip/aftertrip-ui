@@ -3,6 +3,7 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { Trash2, X } from "lucide-react";
 import { useState } from "react";
+import { GENERIC_ERROR_MESSAGE } from "@/lib/user-facing-errors";
 
 type DeleteTripDialogProps = {
   tripTitle: string;
@@ -27,8 +28,8 @@ export function DeleteTripDialog({
     try {
       await onDelete();
       setOpen(false);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not delete this trip.");
+    } catch {
+      setError(GENERIC_ERROR_MESSAGE);
     } finally {
       setDeleting(false);
     }

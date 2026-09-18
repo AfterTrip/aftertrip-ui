@@ -49,6 +49,7 @@ import {
 } from "@/lib/aftertrip-api";
 import { titleCaseEnum } from "@/lib/formatters";
 import { useAuthenticatedPage } from "@/lib/use-authenticated-page";
+import { GENERIC_ERROR_MESSAGE } from "@/lib/user-facing-errors";
 import { AccountMenu } from "@/components/layout/account-menu";
 import { DeleteTripDialog } from "@/components/dashboard/delete-trip-dialog";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
@@ -407,7 +408,7 @@ export function CreateTripPage({ tripId }: CreateTripPageProps = {}) {
     return operation;
   };
 
-  const showSaveError = (message = "We couldn't save your latest changes. Check your connection and try again.") => {
+  const showSaveError = (message = GENERIC_ERROR_MESSAGE) => {
     setAutosaveStatus("Changes pending");
     setSaveError(message);
   };
@@ -425,7 +426,7 @@ export function CreateTripPage({ tripId }: CreateTripPageProps = {}) {
         setReady(true);
         setAutosaveStatus(tripId ? "Autosaved" : "Not saved yet");
       } catch {
-        showSaveError("We couldn't open this trip right now. Refresh the page and try again.");
+        showSaveError();
       }
     })();
   }, [authenticated, router, tripId]);
@@ -500,7 +501,7 @@ export function CreateTripPage({ tripId }: CreateTripPageProps = {}) {
       setAutosaveStatus("Media uploaded");
       setSaveError("");
     } catch {
-      showSaveError("We couldn't upload that media. Check the file and your connection, then try again.");
+      showSaveError();
     }
   };
 
@@ -529,7 +530,7 @@ export function CreateTripPage({ tripId }: CreateTripPageProps = {}) {
       setAutosaveStatus("Cover uploaded");
       setSaveError("");
     } catch {
-      showSaveError("We couldn't upload that cover photo. Check the file and try again.");
+      showSaveError();
     }
   };
 
@@ -546,7 +547,7 @@ export function CreateTripPage({ tripId }: CreateTripPageProps = {}) {
       setSaveError("");
       setStepIndex((index) => Math.min(index + 1, steps.length - 1));
     } catch {
-      showSaveError("We couldn't save this section. Your entries are still here, so please try again.");
+      showSaveError();
     }
   };
   const goBack = () => setStepIndex((index) => Math.max(index - 1, 0));
@@ -752,7 +753,7 @@ export function CreateTripPage({ tripId }: CreateTripPageProps = {}) {
                         const published = await publishTrip(activeTripId);
                         router.push(`/trips/${published.slug}`);
                       } catch {
-                        showSaveError("We couldn't publish this trip right now. Please try again.");
+                        showSaveError();
                       }
                     }}
                   >
@@ -1260,9 +1261,7 @@ function BasicsStep({
         .catch((error) => {
           if (error instanceof DOMException && error.name === "AbortError") return;
           setDestinationOptions([]);
-          setDestinationError(
-            error instanceof Error ? error.message : "Could not search locations."
-          );
+          setDestinationError(GENERIC_ERROR_MESSAGE);
         })
         .finally(() => {
           if (!controller.signal.aborted) setSearchingDestination(false);
@@ -1283,10 +1282,8 @@ function BasicsStep({
       setSelectedDestination(resolved);
       setDestination(resolved.displayName);
       setDestinationOptions([]);
-    } catch (error) {
-      setDestinationError(
-        error instanceof Error ? error.message : "Could not verify that location."
-      );
+    } catch {
+      setDestinationError(GENERIC_ERROR_MESSAGE);
     } finally {
       setResolvingDestination("");
     }

@@ -1,3 +1,5 @@
+import { GENERIC_ERROR_MESSAGE } from "@/lib/user-facing-errors";
+
 export interface AuthenticatedUser {
   id: string;
   email: string;
@@ -15,10 +17,6 @@ export interface AuthenticationSession {
   tokenType: string;
   expiresInSeconds: number;
   user: AuthenticatedUser;
-}
-
-interface ApiErrorBody {
-  message?: string;
 }
 
 const AUTH_SESSION_KEY = "aftertrip.auth.session";
@@ -73,15 +71,11 @@ export async function authenticateWithGoogle(
   const body = await readResponseBody(response);
 
   if (!response.ok) {
-    const error = body as ApiErrorBody | null;
-    throw new Error(
-      error?.message ||
-        "AfterTrip could not complete the sign-in. Please try again."
-    );
+    throw new Error(GENERIC_ERROR_MESSAGE);
   }
 
   if (!isAuthenticationSession(body)) {
-    throw new Error("AfterTrip received an unexpected sign-in response.");
+    throw new Error(GENERIC_ERROR_MESSAGE);
   }
 
   return body;
@@ -147,7 +141,7 @@ export async function refreshAuthenticationSession(): Promise<AuthenticationSess
 
   const current = getAuthenticationSession();
   if (!current?.refreshToken) {
-    throw new Error("Your session has expired. Please sign in again.");
+    throw new Error(GENERIC_ERROR_MESSAGE);
   }
 
   refreshInFlight = (async () => {
@@ -159,7 +153,7 @@ export async function refreshAuthenticationSession(): Promise<AuthenticationSess
     const body = await readResponseBody(response);
     if (!response.ok || !isAuthenticationSession(body)) {
       clearAuthenticationSession();
-      throw new Error("Your session has expired. Please sign in again.");
+      throw new Error(GENERIC_ERROR_MESSAGE);
     }
     saveAuthenticationSession(body);
     return body;

@@ -10,6 +10,7 @@ import { getCommunityReviews, saveCommunityReview } from "@/lib/aftertrip-api";
 import { getAuthenticationSession } from "@/lib/auth-client";
 import { initials } from "@/lib/api-adapters";
 import { useCarouselPagination } from "@/lib/use-carousel-pagination";
+import { GENERIC_ERROR_MESSAGE } from "@/lib/user-facing-errors";
 
 export function TestimonialSection() {
   const router = useRouter();
@@ -86,10 +87,8 @@ export function TestimonialSection() {
         review.note ? "Your review is live." : "Your rating has been saved."
       );
       if (review.note) requestAnimationFrame(() => scrollToPage(0));
-    } catch (error) {
-      setMessage(
-        error instanceof Error ? error.message : "Could not save your review."
-      );
+    } catch {
+      setMessage(GENERIC_ERROR_MESSAGE);
     } finally {
       setSubmitting(false);
     }

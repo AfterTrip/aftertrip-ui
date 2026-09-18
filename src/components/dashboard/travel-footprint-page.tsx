@@ -26,6 +26,7 @@ import {
 } from "@/lib/aftertrip-api";
 import { titleCaseEnum } from "@/lib/formatters";
 import { useAuthenticatedPage } from "@/lib/use-authenticated-page";
+import { GENERIC_ERROR_MESSAGE } from "@/lib/user-facing-errors";
 import { AccountMenu } from "@/components/layout/account-menu";
 import { DashboardBottomNavigation } from "@/components/dashboard/dashboard-bottom-navigation";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
@@ -154,8 +155,8 @@ export function TravelFootprintPage() {
             DEFAULT_TRIP_COVER
         });
       })
-      .catch((error) => {
-        if (active) setMessage(error instanceof Error ? error.message : "Could not load your travel footprint.");
+      .catch(() => {
+        if (active) setMessage(GENERIC_ERROR_MESSAGE);
       })
       .finally(() => {
         if (active) setLoaded(true);

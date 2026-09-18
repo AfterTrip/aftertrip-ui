@@ -27,6 +27,7 @@ import {
 } from "@/lib/aftertrip-api";
 import { formatCount, formatTripDates } from "@/lib/formatters";
 import { useAuthenticatedPage } from "@/lib/use-authenticated-page";
+import { GENERIC_ERROR_MESSAGE } from "@/lib/user-facing-errors";
 import { AccountMenu } from "@/components/layout/account-menu";
 import { DeleteTripDialog } from "@/components/dashboard/delete-trip-dialog";
 import { DashboardBottomNavigation } from "@/components/dashboard/dashboard-bottom-navigation";
@@ -124,7 +125,7 @@ export function MyTripsPage() {
           })
         );
       } catch {
-        if (active) setLoadError("We couldn't load your trips right now. Please try again.");
+        if (active) setLoadError(GENERIC_ERROR_MESSAGE);
       }
     })();
     return () => {

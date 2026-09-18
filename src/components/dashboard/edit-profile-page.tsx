@@ -19,6 +19,7 @@ import {
   uploadMedia
 } from "@/lib/aftertrip-api";
 import { useAuthenticatedPage } from "@/lib/use-authenticated-page";
+import { GENERIC_ERROR_MESSAGE } from "@/lib/user-facing-errors";
 import { AccountMenu } from "@/components/layout/account-menu";
 import { DashboardBottomNavigation } from "@/components/dashboard/dashboard-bottom-navigation";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
@@ -60,7 +61,7 @@ export function EditProfilePage() {
             ""
         );
       })
-      .catch((error) => setMessage(error instanceof Error ? error.message : "Could not load your profile."));
+      .catch(() => setMessage(GENERIC_ERROR_MESSAGE));
   }, [authenticated]);
 
   const changePhoto = async (file?: File) => {
@@ -71,8 +72,8 @@ export function EditProfilePage() {
       const media = await uploadMedia(file, "PROFILE_AVATAR");
       setAvatarMediaId(media.id);
       setProfilePhoto(URL.createObjectURL(file));
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not upload that photo.");
+    } catch {
+      setMessage(GENERIC_ERROR_MESSAGE);
     } finally {
       setUploadingPhoto(false);
     }
@@ -94,8 +95,8 @@ export function EditProfilePage() {
         avatarMediaId
       });
       setMessage("Profile saved.");
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not save your profile.");
+    } catch {
+      setMessage(GENERIC_ERROR_MESSAGE);
     } finally {
       setSaving(false);
     }

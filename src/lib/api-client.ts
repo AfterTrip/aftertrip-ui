@@ -4,6 +4,7 @@ import {
   getAuthenticationSession,
   refreshAuthenticationSession
 } from "@/lib/auth-client";
+import { GENERIC_ERROR_MESSAGE } from "@/lib/user-facing-errors";
 
 type ApiErrorBody = {
   code?: string;
@@ -56,7 +57,7 @@ export async function gatewayRequest<T>(
   let refreshedBeforeRequest = false;
   if (authenticated && !session) {
     throw new AfterTripApiError(
-      "Please sign in to continue.",
+      GENERIC_ERROR_MESSAGE,
       401,
       "AUTHENTICATION_REQUIRED"
     );
@@ -120,7 +121,7 @@ export async function gatewayRequest<T>(
   if (!response.ok) {
     const error = await readApiError(response);
     throw new AfterTripApiError(
-      error.message || fallbackMessage(response.status),
+      GENERIC_ERROR_MESSAGE,
       response.status,
       error.code,
       error.correlationId,
@@ -142,7 +143,7 @@ function throwSessionExpired(): never {
     window.dispatchEvent(new Event("aftertrip:session-expired"));
   }
   throw new AfterTripApiError(
-    "Your sign-in expired. Please sign in again to continue.",
+    GENERIC_ERROR_MESSAGE,
     401,
     "SESSION_EXPIRED"
   );
@@ -156,12 +157,4 @@ async function readApiError(response: Response): Promise<ApiErrorBody> {
   } catch {
     return {};
   }
-}
-
-function fallbackMessage(status: number) {
-  if (status === 429) return "Too many requests. Please wait and try again.";
-  if (status === 401) return "Please sign in to continue.";
-  if (status === 403) return "You do not have permission to do that.";
-  if (status >= 500) return "AfterTrip is temporarily unavailable.";
-  return "AfterTrip could not complete that request.";
 }

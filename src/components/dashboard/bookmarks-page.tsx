@@ -23,6 +23,7 @@ import {
 } from "@/lib/aftertrip-api";
 import { apiTripToExploreTrip } from "@/lib/api-adapters";
 import { useAuthenticatedPage } from "@/lib/use-authenticated-page";
+import { GENERIC_ERROR_MESSAGE } from "@/lib/user-facing-errors";
 import { AccountMenu } from "@/components/layout/account-menu";
 import { DashboardBottomNavigation } from "@/components/dashboard/dashboard-bottom-navigation";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
@@ -80,8 +81,8 @@ export function BookmarksPage() {
         );
         setMessage(trips.length ? "" : "No bookmarked trips yet.");
       })
-      .catch((error) => {
-        if (active) setMessage(error instanceof Error ? error.message : "Could not load bookmarks.");
+      .catch(() => {
+        if (active) setMessage(GENERIC_ERROR_MESSAGE);
       });
     return () => {
       active = false;
@@ -95,8 +96,8 @@ export function BookmarksPage() {
       const remaining = bookmarkedTrips.filter((trip) => trip.tripId !== tripId);
       setBookmarkedTrips(remaining);
       if (!remaining.length) setMessage("No bookmarked trips yet.");
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Could not remove bookmark.");
+    } catch {
+      setMessage(GENERIC_ERROR_MESSAGE);
     } finally {
       setRemovingTripId(undefined);
     }

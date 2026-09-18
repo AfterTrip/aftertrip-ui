@@ -18,6 +18,7 @@ import {
   saveAuthenticationSession
 } from "@/lib/auth-client";
 import { getOwnProfile } from "@/lib/aftertrip-api";
+import { GENERIC_ERROR_MESSAGE } from "@/lib/user-facing-errors";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 
 interface GoogleCredentialResponse {
@@ -109,13 +110,9 @@ export function AuthPage() {
             : "/dashboard";
         router.replace(nextPath);
         router.refresh();
-      } catch (error) {
+      } catch {
         setAuthStatus("error");
-        setAuthMessage(
-          error instanceof Error
-            ? error.message
-            : "AfterTrip could not complete the sign-in. Please try again."
-        );
+        setAuthMessage(GENERIC_ERROR_MESSAGE);
       }
     },
     [router, searchParams]
@@ -194,9 +191,7 @@ export function AuthPage() {
         onReady={initializeGoogleSignIn}
         onError={() => {
           setAuthStatus("error");
-          setAuthMessage(
-            "Google sign-in could not load. Check your connection and try again."
-          );
+          setAuthMessage(GENERIC_ERROR_MESSAGE);
         }}
       />
       <nav className="auth-top-links" aria-label="Authentication navigation">
