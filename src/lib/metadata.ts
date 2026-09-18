@@ -52,6 +52,7 @@ export const defaultMetadata: Metadata = {
         url: SITE_SHARE_IMAGE,
         width: SITE_SHARE_IMAGE_WIDTH,
         height: SITE_SHARE_IMAGE_HEIGHT,
+        type: "image/jpeg",
         alt: "AfterTrip travel sharing preview with coastal journeys and trip cards"
       }
     ],
