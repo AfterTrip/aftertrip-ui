@@ -148,6 +148,9 @@ const tripStyleOptions = [
   "Winter Escape"
 ];
 const budgetRows = ["Stay", "Transport", "Food", "Activities", "Miscellaneous"];
+const imageUploadAccept = "image/jpeg,image/png,image/webp,image/avif";
+const coverImageMaxBytes = 10 * 1024 * 1024;
+const supportedCoverExtensions = [".jpg", ".jpeg", ".png", ".webp", ".avif"];
 type CreateTripPageProps = {
   tripId?: string;
 };
@@ -166,7 +169,9 @@ export function CreateTripPage({ tripId }: CreateTripPageProps = {}) {
   const [tripGroup, setTripGroup] = useState("");
   const [coverPhoto, setCoverPhoto] = useState<MediaItem | undefined>();
   const [summary, setSummary] = useState("");
-  const [selectedTripStyles, setSelectedTripStyles] = useState(new Set<string>());
+  const [selectedTripStyles, setSelectedTripStyles] = useState(
+    new Set<string>()
+  );
   const [highlightInput, setHighlightInput] = useState("");
   const [highlights, setHighlights] = useState<string[]>([]);
   const [goodToKnow, setGoodToKnow] = useState("");
@@ -256,6 +261,36 @@ export function CreateTripPage({ tripId }: CreateTripPageProps = {}) {
     }
   };
 
+  const basicsPayload = (coverMediaId: string | null | undefined) => ({
+    title: title.trim() || null,
+    destination: selectedDestination
+      ? {
+          provider: selectedDestination.provider,
+          providerPlaceId: selectedDestination.providerPlaceId,
+          name: selectedDestination.name,
+          displayName: selectedDestination.displayName,
+          locality: selectedDestination.locality ?? null,
+          region: selectedDestination.region ?? null,
+          country: selectedDestination.country,
+          countryCode: selectedDestination.countryCode,
+          latitude: selectedDestination.latitude,
+          longitude: selectedDestination.longitude
+        }
+      : null,
+    startDate: startDate || null,
+    endDate: endDate || null,
+    coverMediaId: coverMediaId ?? null,
+    tripGroup: tripGroup ? toApiEnum(tripGroup) : null
+  });
+
+  const persistBasicsWithCover = async (
+    coverMediaId: string | null | undefined
+  ) => {
+    const persistedTripId =
+      activeTripIdRef.current ?? (await ensureDraftExists());
+    await updateTripBasics(persistedTripId, basicsPayload(coverMediaId));
+  };
+
   const hydrateTrip = async (trip: ApiTrip) => {
     setTitle(trip.title ?? "");
     setDestination(trip.destination?.displayName ?? "");
@@ -292,7 +327,9 @@ export function CreateTripPage({ tripId }: CreateTripPageProps = {}) {
           }))
         : [{ id: "day-1", headline: "", description: "" }]
     );
-    setBudgetMode(trip.budgetMode === "RANGE" ? "Budget range" : "Exact amount");
+    setBudgetMode(
+      trip.budgetMode === "RANGE" ? "Budget range" : "Exact amount"
+    );
     setBudgetCurrency(trip.budgetCurrency ?? "INR");
     setBudgetAmount(trip.budgetAmount?.toString() ?? "");
     setBudgetMin(trip.budgetMin?.toString() ?? "");
@@ -344,27 +381,7 @@ export function CreateTripPage({ tripId }: CreateTripPageProps = {}) {
     if (!persistedTripId) return;
 
     if (step === "basics") {
-      await updateTripBasics(persistedTripId, {
-        title: title.trim() || null,
-        destination: selectedDestination
-          ? {
-              provider: selectedDestination.provider,
-              providerPlaceId: selectedDestination.providerPlaceId,
-              name: selectedDestination.name,
-              displayName: selectedDestination.displayName,
-              locality: selectedDestination.locality ?? null,
-              region: selectedDestination.region ?? null,
-              country: selectedDestination.country,
-              countryCode: selectedDestination.countryCode,
-              latitude: selectedDestination.latitude,
-              longitude: selectedDestination.longitude
-            }
-          : null,
-        startDate: startDate || null,
-        endDate: endDate || null,
-        coverMediaId: coverPhoto?.id ?? null,
-        tripGroup: tripGroup ? toApiEnum(tripGroup) : null
-      });
+      await updateTripBasics(persistedTripId, basicsPayload(coverPhoto?.id));
     } else if (step === "about") {
       await updateTripStory(persistedTripId, {
         summary: summary.trim() || null,
@@ -444,8 +461,8 @@ export function CreateTripPage({ tripId }: CreateTripPageProps = {}) {
         .catch(() => showSaveError());
     }, 700);
     return () => window.clearTimeout(timeout);
-  // Each listed field is part of the draft snapshot persisted by persistStep.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Each listed field is part of the draft snapshot persisted by persistStep.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     activeTripId,
     currentStep.id,
@@ -484,7 +501,10 @@ export function CreateTripPage({ tripId }: CreateTripPageProps = {}) {
     if (!files?.length) return;
     setAutosaveStatus("Uploading media...");
     try {
-      const selected = Array.from(files).slice(0, Math.max(0, 10 - media.length));
+      const selected = Array.from(files).slice(
+        0,
+        Math.max(0, 10 - media.length)
+      );
       const uploaded = await Promise.all(
         selected.map(async (file) => {
           const result = await uploadMedia(file, "TRIP_GALLERY");
@@ -518,17 +538,35 @@ export function CreateTripPage({ tripId }: CreateTripPageProps = {}) {
 
   const addCoverPhoto = async (files: FileList | null) => {
     const file = files?.[0];
-    if (!file || !file.type.startsWith("image")) return;
+    if (!file) return;
+    if (!isSupportedCoverImage(file)) {
+      showSaveError("Choose a JPG, PNG, WebP, or AVIF cover photo.");
+      return;
+    }
+    if (file.size > coverImageMaxBytes) {
+      showSaveError("Choose a cover photo under 10 MB.");
+      return;
+    }
     setAutosaveStatus("Uploading cover...");
     try {
       const uploaded = await uploadMedia(file, "TRIP_COVER");
-      setCoverPhoto({
+      const nextCover = {
         id: uploaded.id,
         url: URL.createObjectURL(file),
         name: file.name,
-        kind: "photo"
+        kind: "photo" as const
+      };
+      setCoverPhoto((current) => {
+        if (current?.url.startsWith("blob:")) URL.revokeObjectURL(current.url);
+        return nextCover;
       });
-      setAutosaveStatus("Cover uploaded");
+      setAutosaveStatus("Saving cover...");
+      const operation = saveQueue.current
+        .catch(() => undefined)
+        .then(() => persistBasicsWithCover(uploaded.id));
+      saveQueue.current = operation.catch(() => undefined);
+      await operation;
+      setAutosaveStatus("Cover saved");
       setSaveError("");
     } catch {
       showSaveError();
@@ -733,7 +771,11 @@ export function CreateTripPage({ tripId }: CreateTripPageProps = {}) {
               )}
               <div>
                 {currentStep.optional && currentStep.id !== "review" ? (
-                  <button type="button" className="ghost" onClick={() => void goNext()}>
+                  <button
+                    type="button"
+                    className="ghost"
+                    onClick={() => void goNext()}
+                  >
                     Skip for now
                   </button>
                 ) : null}
@@ -779,7 +821,11 @@ export function CreateTripPage({ tripId }: CreateTripPageProps = {}) {
             <strong>Your changes need attention</strong>
             <p>{saveError}</p>
           </div>
-          <button type="button" onClick={() => setSaveError("")} aria-label="Dismiss save message">
+          <button
+            type="button"
+            onClick={() => setSaveError("")}
+            aria-label="Dismiss save message"
+          >
             <X aria-hidden="true" size={18} />
           </button>
         </aside>
@@ -837,6 +883,13 @@ function DashboardTopbar() {
       </div>
       <div className="dashboard-mobile-actions">
         <ThemeToggle />
+        <Link
+          className="dashboard-mobile-bookmarks"
+          href="/dashboard/bookmarks"
+          aria-label="Open bookmarks"
+        >
+          <Bookmark aria-hidden="true" size={21} />
+        </Link>
         <AccountMenu variant="dashboard" />
       </div>
     </header>
@@ -1008,8 +1061,8 @@ function TripDraftPreview({
   const completedDays = itineraryDays.filter(
     (day) => day.headline.trim() || day.description.trim()
   );
-  const categoryRows = Object.entries(budgetCategories).filter(
-    ([, value]) => value.trim()
+  const categoryRows = Object.entries(budgetCategories).filter(([, value]) =>
+    value.trim()
   );
   const formatMoney = (value: string) => {
     const amount = Number(value);
@@ -1022,7 +1075,9 @@ function TripDraftPreview({
   };
   const budgetLabel =
     budgetMode === "Budget range"
-      ? [formatMoney(budgetMin), formatMoney(budgetMax)].filter(Boolean).join(" - ")
+      ? [formatMoney(budgetMin), formatMoney(budgetMax)]
+          .filter(Boolean)
+          .join(" - ")
       : formatMoney(budgetAmount);
 
   return (
@@ -1047,7 +1102,11 @@ function TripDraftPreview({
               <small>Only you can see this draft</small>
             </span>
           </div>
-          <button type="button" onClick={onClose} aria-label="Close trip preview">
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close trip preview"
+          >
             <X aria-hidden="true" size={21} />
           </button>
         </header>
@@ -1063,12 +1122,29 @@ function TripDraftPreview({
             <span className="trip-draft-preview-shade" aria-hidden="true" />
             <div>
               <small>{destination || "Destination not added yet"}</small>
-              <h2 id="trip-draft-preview-title">{title || "Your trip title"}</h2>
+              <h2 id="trip-draft-preview-title">
+                {title || "Your trip title"}
+              </h2>
               {summary.trim() ? <p>{summary}</p> : null}
               <nav aria-label="Draft trip essentials">
-                {duration ? <span><CalendarDays aria-hidden="true" size={15} />{duration}</span> : null}
-                {tripGroup ? <span><Users aria-hidden="true" size={15} />{tripGroup}</span> : null}
-                {budgetLabel ? <span><CircleDollarSign aria-hidden="true" size={15} />{budgetLabel} / person</span> : null}
+                {duration ? (
+                  <span>
+                    <CalendarDays aria-hidden="true" size={15} />
+                    {duration}
+                  </span>
+                ) : null}
+                {tripGroup ? (
+                  <span>
+                    <Users aria-hidden="true" size={15} />
+                    {tripGroup}
+                  </span>
+                ) : null}
+                {budgetLabel ? (
+                  <span>
+                    <CircleDollarSign aria-hidden="true" size={15} />
+                    {budgetLabel} / person
+                  </span>
+                ) : null}
               </nav>
             </div>
           </section>
@@ -1081,7 +1157,9 @@ function TripDraftPreview({
                   <p>{summary}</p>
                   {styles.length ? (
                     <div className="trip-draft-preview-chips">
-                      {styles.map((style) => <span key={style}>{style}</span>)}
+                      {styles.map((style) => (
+                        <span key={style}>{style}</span>
+                      ))}
                     </div>
                   ) : null}
                 </section>
@@ -1095,7 +1173,9 @@ function TripDraftPreview({
                       <article key={day.id}>
                         <span>Day {index + 1}</span>
                         <div>
-                          <strong>{day.headline || "A day on the journey"}</strong>
+                          <strong>
+                            {day.headline || "A day on the journey"}
+                          </strong>
                           {day.description ? <p>{day.description}</p> : null}
                         </div>
                       </article>
@@ -1110,7 +1190,10 @@ function TripDraftPreview({
                   {highlights.length ? (
                     <div className="trip-draft-preview-highlights">
                       {highlights.map((highlight) => (
-                        <span key={highlight}><Check aria-hidden="true" size={15} />{highlight}</span>
+                        <span key={highlight}>
+                          <Check aria-hidden="true" size={15} />
+                          {highlight}
+                        </span>
                       ))}
                     </div>
                   ) : null}
@@ -1125,12 +1208,21 @@ function TripDraftPreview({
 
               {media.length ? (
                 <section className="trip-draft-preview-section">
-                  <p className="trip-draft-preview-eyebrow">Photos and videos</p>
+                  <p className="trip-draft-preview-eyebrow">
+                    Photos and videos
+                  </p>
                   <div className="trip-draft-preview-media">
                     {media.slice(0, 6).map((item) => (
                       <figure key={item.id}>
-                        <MediaPreview item={item} fallback="" alt={item.name} sizes="240px" />
-                        {item.kind === "video" ? <Play aria-hidden="true" size={22} /> : null}
+                        <MediaPreview
+                          item={item}
+                          fallback=""
+                          alt={item.name}
+                          sizes="240px"
+                        />
+                        {item.kind === "video" ? (
+                          <Play aria-hidden="true" size={22} />
+                        ) : null}
                       </figure>
                     ))}
                   </div>
@@ -1142,20 +1234,41 @@ function TripDraftPreview({
               <section className="trip-draft-preview-section">
                 <p className="trip-draft-preview-eyebrow">Quick facts</p>
                 <dl>
-                  <div><dt>Destination</dt><dd>{destination || "Not added"}</dd></div>
-                  <div><dt>Duration</dt><dd>{duration || "Not added"}</dd></div>
-                  <div><dt>Trip group</dt><dd>{tripGroup || "Not added"}</dd></div>
-                  {styles.length ? <div><dt>Style</dt><dd>{styles.join(", ")}</dd></div> : null}
+                  <div>
+                    <dt>Destination</dt>
+                    <dd>{destination || "Not added"}</dd>
+                  </div>
+                  <div>
+                    <dt>Duration</dt>
+                    <dd>{duration || "Not added"}</dd>
+                  </div>
+                  <div>
+                    <dt>Trip group</dt>
+                    <dd>{tripGroup || "Not added"}</dd>
+                  </div>
+                  {styles.length ? (
+                    <div>
+                      <dt>Style</dt>
+                      <dd>{styles.join(", ")}</dd>
+                    </div>
+                  ) : null}
                 </dl>
               </section>
               {budgetLabel ? (
                 <section className="trip-draft-preview-section">
-                  <p className="trip-draft-preview-eyebrow">Budget per person</p>
-                  <strong className="trip-draft-preview-budget">{budgetLabel}</strong>
+                  <p className="trip-draft-preview-eyebrow">
+                    Budget per person
+                  </p>
+                  <strong className="trip-draft-preview-budget">
+                    {budgetLabel}
+                  </strong>
                   {categoryRows.length ? (
                     <dl className="trip-draft-preview-breakdown">
                       {categoryRows.map(([label, value]) => (
-                        <div key={label}><dt>{label}</dt><dd>{formatMoney(value)}</dd></div>
+                        <div key={label}>
+                          <dt>{label}</dt>
+                          <dd>{formatMoney(value)}</dd>
+                        </div>
                       ))}
                     </dl>
                   ) : null}
@@ -1168,7 +1281,10 @@ function TripDraftPreview({
             <div className="trip-draft-preview-empty">
               <Sparkles aria-hidden="true" size={22} />
               <strong>Your journey is taking shape</strong>
-              <p>Add your story, itinerary, or media and it will appear here instantly.</p>
+              <p>
+                Add your story, itinerary, or media and it will appear here
+                instantly.
+              </p>
             </div>
           ) : null}
         </div>
@@ -1193,6 +1309,15 @@ function numericOnly(value: string) {
 
 function toApiEnum(value: string) {
   return value.trim().toUpperCase().replaceAll(" ", "_");
+}
+
+function isSupportedCoverImage(file: File) {
+  const type = file.type.toLowerCase();
+  const name = file.name.toLowerCase();
+  return (
+    imageUploadAccept.split(",").includes(type) ||
+    supportedCoverExtensions.some((extension) => name.endsWith(extension))
+  );
 }
 
 function getTodayInputDate() {
@@ -1242,7 +1367,9 @@ function BasicsStep({
   coverPhoto?: MediaItem;
 }) {
   const todayDate = getTodayInputDate();
-  const [destinationOptions, setDestinationOptions] = useState<ApiLocationSuggestion[]>([]);
+  const [destinationOptions, setDestinationOptions] = useState<
+    ApiLocationSuggestion[]
+  >([]);
   const [searchingDestination, setSearchingDestination] = useState(false);
   const [resolvingDestination, setResolvingDestination] = useState("");
   const [destinationError, setDestinationError] = useState("");
@@ -1260,7 +1387,8 @@ function BasicsStep({
       searchLocations(query, controller.signal)
         .then(setDestinationOptions)
         .catch((error) => {
-          if (error instanceof DOMException && error.name === "AbortError") return;
+          if (error instanceof DOMException && error.name === "AbortError")
+            return;
           setDestinationOptions([]);
           setDestinationError(GENERIC_ERROR_MESSAGE);
         })
@@ -1340,7 +1468,11 @@ function BasicsStep({
               role="combobox"
               aria-autocomplete="list"
               aria-controls="destination-results"
-              aria-expanded={Boolean(destinationOptions.length || searchingDestination || destinationError)}
+              aria-expanded={Boolean(
+                destinationOptions.length ||
+                  searchingDestination ||
+                  destinationError
+              )}
               aria-required="true"
               aria-invalid={Boolean(destination && !selectedDestination)}
             />
@@ -1354,7 +1486,11 @@ function BasicsStep({
                 : "Select a result. Free-typed locations cannot be published."}
           </em>
           {destination.trim().length >= 2 && !selectedDestination ? (
-            <div className="verified-place-results" id="destination-results" role="listbox">
+            <div
+              className="verified-place-results"
+              id="destination-results"
+              role="listbox"
+            >
               {searchingDestination ? (
                 <p className="location-search-status">Searching locations...</p>
               ) : destinationError ? (
@@ -1388,7 +1524,8 @@ function BasicsStep({
                 ))
               ) : destination.trim().length >= 2 ? (
                 <p>
-                  No matching location found. Try a city, region, country, or full address.
+                  No matching location found. Try a city, region, country, or
+                  full address.
                 </p>
               ) : null}
               <small className="mapbox-attribution">Powered by Mapbox</small>
@@ -1441,8 +1578,12 @@ function BasicsStep({
             <small>JPG, PNG or WEBP up to 10MB</small>
             <input
               type="file"
-              accept="image/jpeg,image/png,image/webp"
-              onChange={(event) => addCoverPhoto(event.target.files)}
+              accept={imageUploadAccept}
+              onChange={(event) => {
+                const { files } = event.currentTarget;
+                void addCoverPhoto(files);
+                event.currentTarget.value = "";
+              }}
               aria-required="true"
             />
           </label>
@@ -1465,8 +1606,12 @@ function BasicsStep({
               Change
               <input
                 type="file"
-                accept="image/jpeg,image/png,image/webp"
-                onChange={(event) => addCoverPhoto(event.target.files)}
+                accept={imageUploadAccept}
+                onChange={(event) => {
+                  const { files } = event.currentTarget;
+                  void addCoverPhoto(files);
+                  event.currentTarget.value = "";
+                }}
                 aria-label="Change cover photo"
               />
             </label>
@@ -1551,7 +1696,9 @@ function AboutStep({
             placeholder="Share a short intro about your trip..."
             aria-required="true"
           />
-          <small>{summary.length} / {contentLimits.summary}</small>
+          <small>
+            {summary.length} / {contentLimits.summary}
+          </small>
         </label>
         <div className="create-chip-section trip-style-section">
           <h3>Trip style *</h3>
@@ -1614,7 +1761,9 @@ function AboutStep({
             placeholder="Best season, permits, local tips..."
             maxLength={contentLimits.goodToKnow}
           />
-          <small>{goodToKnow.length} / {contentLimits.goodToKnow}</small>
+          <small>
+            {goodToKnow.length} / {contentLimits.goodToKnow}
+          </small>
         </section>
         <section className="media-upload-panel">
           <h2>Share photos & videos (optional)</h2>
@@ -1729,7 +1878,8 @@ function ItineraryStep({
                   maxLength={contentLimits.itineraryDescription}
                 />
                 <small>
-                  {day.description.length} / {contentLimits.itineraryDescription}
+                  {day.description.length} /{" "}
+                  {contentLimits.itineraryDescription}
                 </small>
               </label>
             </div>

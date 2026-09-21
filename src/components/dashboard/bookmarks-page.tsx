@@ -160,6 +160,14 @@ export function BookmarksPage() {
         </div>
         <div className="dashboard-mobile-actions">
           <ThemeToggle />
+          <Link
+            className="dashboard-mobile-bookmarks active"
+            href="/dashboard/bookmarks"
+            aria-label="Open bookmarks"
+            aria-current="page"
+          >
+            <Bookmark aria-hidden="true" size={21} />
+          </Link>
         </div>
       </header>
 

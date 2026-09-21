@@ -196,12 +196,16 @@ describe("My Trips page", () => {
     const mobileNavigation = screen.getByRole("navigation", {
       name: "Mobile dashboard navigation"
     });
+    expect(screen.getByLabelText("Open bookmarks")).toHaveAttribute(
+      "href",
+      "/dashboard/bookmarks"
+    );
     expect(
       within(mobileNavigation).getByRole("link", { name: "Publish" })
     ).toHaveAttribute("href", "/dashboard/create-trip");
     expect(
-      within(mobileNavigation).queryByRole("link", { name: "Footprint" })
-    ).not.toBeInTheDocument();
+      within(mobileNavigation).getByRole("link", { name: "Footprint" })
+    ).toHaveAttribute("href", "/dashboard/travel-footprint");
     expect(within(mobileNavigation).getAllByRole("link")).toHaveLength(5);
 
     fireEvent.change(screen.getByPlaceholderText("Search my trips..."), {

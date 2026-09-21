@@ -152,10 +152,10 @@ export function TestimonialSection() {
           </label>
           <button type="submit" disabled={submitting}>
             {submitting
-              ? "Saving..."
+              ? "Sharing..."
               : communityNote.trim()
-                ? "Add Review"
-                : "Save Rating"}
+                ? "Share Your Review"
+                : "Share Your Rating"}
           </button>
           {message ? (
             <FeedbackMessage

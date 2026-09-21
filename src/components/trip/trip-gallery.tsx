@@ -63,6 +63,7 @@ export function TripGallery({ images }: TripGalleryProps) {
         {images.map((image, index) => (
           <button
             type="button"
+            aria-label={isVideo(image) ? image.alt : undefined}
             onClick={() => setActiveIndex(index)}
             key={image.src}
           >
@@ -103,7 +104,13 @@ export function TripGallery({ images }: TripGalleryProps) {
                 aria-label="Dismiss media viewer"
                 onClick={() => setActiveIndex(null)}
               />
-              <div className="gallery-lightbox-panel">
+              <div
+                className={
+                  activeIsVideo
+                    ? "gallery-lightbox-panel has-video"
+                    : "gallery-lightbox-panel"
+                }
+              >
                 <div className="gallery-lightbox-topbar">
                   <p>
                     <span>
@@ -140,10 +147,13 @@ export function TripGallery({ images }: TripGalleryProps) {
                 <figure>
                   {activeIsVideo ? (
                     <video
+                      key={activeImage.src}
                       src={activeImage.src}
                       poster={activeImage.poster}
                       controls
                       autoPlay
+                      playsInline
+                      preload="metadata"
                     />
                   ) : (
                     <Image

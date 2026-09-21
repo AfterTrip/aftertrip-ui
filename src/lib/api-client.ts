@@ -30,6 +30,7 @@ type GatewayRequestOptions = Omit<RequestInit, "body"> & {
   body?: unknown;
   authenticated?: boolean;
   retryAuthentication?: boolean;
+  timeoutMs?: number;
 };
 
 const gatewayBaseUrl = () =>
@@ -50,6 +51,7 @@ export async function gatewayRequest<T>(
     authenticated = false,
     retryAuthentication = true,
     body,
+    timeoutMs = 20_000,
     headers: suppliedHeaders,
     ...requestInit
   } = options;
@@ -100,7 +102,7 @@ export async function gatewayRequest<T>(
     body: requestBody,
     headers,
     cache: "no-store",
-    signal: requestInit.signal ?? AbortSignal.timeout(20_000)
+    signal: requestInit.signal ?? AbortSignal.timeout(timeoutMs)
   });
 
   if (response.status === 401 && authenticated) {
@@ -120,6 +122,15 @@ export async function gatewayRequest<T>(
 
   if (!response.ok) {
     const error = await readApiError(response);
+    if (process.env.NODE_ENV !== "production") {
+      console.error("AfterTrip API request failed", {
+        path,
+        status: response.status,
+        code: error.code,
+        correlationId: error.correlationId,
+        fieldErrors: error.fieldErrors
+      });
+    }
     throw new AfterTripApiError(
       GENERIC_ERROR_MESSAGE,
       response.status,
@@ -142,11 +153,7 @@ function throwSessionExpired(): never {
   if (typeof window !== "undefined") {
     window.dispatchEvent(new Event("aftertrip:session-expired"));
   }
-  throw new AfterTripApiError(
-    GENERIC_ERROR_MESSAGE,
-    401,
-    "SESSION_EXPIRED"
-  );
+  throw new AfterTripApiError(GENERIC_ERROR_MESSAGE, 401, "SESSION_EXPIRED");
 }
 
 async function readApiError(response: Response): Promise<ApiErrorBody> {

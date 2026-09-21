@@ -215,6 +215,13 @@ export function TravelFootprintPage() {
         </div>
         <div className="dashboard-mobile-actions">
           <ThemeToggle />
+          <Link
+            className="dashboard-mobile-bookmarks"
+            href="/dashboard/bookmarks"
+            aria-label="Open bookmarks"
+          >
+            <Bookmark aria-hidden="true" size={21} />
+          </Link>
         </div>
       </header>
 

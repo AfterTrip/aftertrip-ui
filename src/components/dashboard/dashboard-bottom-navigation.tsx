@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bookmark, Briefcase, Plus, Search, User } from "lucide-react";
+import { Briefcase, Map, Plus, Search, User } from "lucide-react";
 
 const items = [
   { label: "Explore", href: "/explore", icon: Search },
-  { label: "My Trips", href: "/dashboard", icon: Briefcase },
+  { label: "Footprint", href: "/dashboard/travel-footprint", icon: Map },
   { label: "Publish", href: "/dashboard/create-trip", icon: Plus },
-  { label: "Bookmarks", href: "/dashboard/bookmarks", icon: Bookmark },
+  { label: "My Trips", href: "/dashboard", icon: Briefcase },
   { label: "Profile", href: "/dashboard/edit-profile", icon: User }
 ] as const;
 

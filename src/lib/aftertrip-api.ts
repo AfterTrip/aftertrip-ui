@@ -353,7 +353,7 @@ export async function uploadMedia(file: File, purpose: ApiMedia["purpose"]) {
   form.append("file", file);
   return gatewayRequest<ApiMedia>(
     `/api/v1/media?purpose=${encodeURIComponent(purpose)}`,
-    { method: "POST", authenticated: true, body: form }
+    { method: "POST", authenticated: true, body: form, timeoutMs: 120_000 }
   );
 }
 

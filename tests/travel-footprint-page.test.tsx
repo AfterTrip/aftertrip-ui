@@ -172,9 +172,13 @@ describe("Travel Footprint page", () => {
     const mobileNavigation = screen.getByRole("navigation", {
       name: "Mobile dashboard navigation"
     });
+    expect(screen.getByLabelText("Open bookmarks")).toHaveAttribute(
+      "href",
+      "/dashboard/bookmarks"
+    );
     expect(
-      within(mobileNavigation).queryByRole("link", { name: "Footprint" })
-    ).not.toBeInTheDocument();
+      within(mobileNavigation).getByRole("link", { name: "Footprint" })
+    ).toHaveAttribute("href", "/dashboard/travel-footprint");
     expect(
       within(mobileNavigation).getByRole("link", { name: "Publish" })
     ).toHaveAttribute("href", "/dashboard/create-trip");
@@ -183,7 +187,7 @@ describe("Travel Footprint page", () => {
     ).toHaveAttribute("href", "/dashboard");
     expect(within(mobileNavigation).getAllByRole("link")).toHaveLength(5);
     expect(
-      within(mobileNavigation).queryByRole("link", { current: "page" })
-    ).not.toBeInTheDocument();
+      within(mobileNavigation).getByRole("link", { current: "page" })
+    ).toHaveAttribute("href", "/dashboard/travel-footprint");
   });
 });

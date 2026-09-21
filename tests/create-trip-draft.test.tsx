@@ -3,7 +3,11 @@ import React from "react";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CreateTripPage } from "@/components/dashboard/create-trip-page";
-import { createTripDraft, updateTripBasics } from "@/lib/aftertrip-api";
+import {
+  createTripDraft,
+  updateTripBasics,
+  uploadMedia
+} from "@/lib/aftertrip-api";
 
 const router = vi.hoisted(() => ({
   push: vi.fn(),
@@ -131,9 +135,7 @@ describe("create trip draft lifecycle", () => {
   it("does not create a draft when an edit is cleared before autosave", async () => {
     vi.useFakeTimers();
     render(<CreateTripPage />);
-    const title = screen.getByPlaceholderText(
-      "e.g. Magical Meghalaya Escape"
-    );
+    const title = screen.getByPlaceholderText("e.g. Magical Meghalaya Escape");
 
     fireEvent.change(title, { target: { value: "Temporary title" } });
     fireEvent.change(title, { target: { value: "" } });
@@ -143,6 +145,49 @@ describe("create trip draft lifecycle", () => {
     });
 
     expect(createTripDraft).not.toHaveBeenCalled();
+  });
+
+  it("persists a changed cover immediately after upload", async () => {
+    Object.defineProperty(URL, "createObjectURL", {
+      configurable: true,
+      value: vi.fn(() => "blob:cover")
+    });
+    Object.defineProperty(URL, "revokeObjectURL", {
+      configurable: true,
+      value: vi.fn()
+    });
+    vi.mocked(uploadMedia).mockResolvedValueOnce({
+      id: "new-cover-id",
+      purpose: "TRIP_COVER",
+      mediaType: "IMAGE",
+      originalFilename: "cover.png",
+      contentType: "image/png",
+      contentUrl: "/api/v1/media/new-cover-id/content",
+      sizeBytes: 10,
+      visibility: "PRIVATE",
+      createdAt: "2026-09-19T00:00:00Z"
+    });
+    render(<CreateTripPage />);
+
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText("Change cover photo"), {
+        target: {
+          files: [
+            new File([new Uint8Array([1, 2, 3])], "cover.png", {
+              type: "image/png"
+            })
+          ]
+        }
+      });
+    });
+
+    expect(uploadMedia).toHaveBeenCalledWith(expect.any(File), "TRIP_COVER");
+    expect(createTripDraft).toHaveBeenCalledTimes(1);
+    expect(updateTripBasics).toHaveBeenCalledWith(
+      "draft-1",
+      expect.objectContaining({ coverMediaId: "new-cover-id" })
+    );
+    expect(screen.getByText("Cover saved")).toBeInTheDocument();
   });
 
   it("keeps the wizard controls interactive across every step", () => {

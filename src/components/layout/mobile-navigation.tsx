@@ -37,15 +37,13 @@ export function MobileNavigation() {
           aria-describedby={undefined}
         >
           <div className="mobile-nav-topline">
-            <Dialog.Title>AfterTrip menu</Dialog.Title>
-            <div>
-              <ThemeToggle />
-              <Dialog.Close asChild>
-                <IconButton label="Close menu">
-                  <X aria-hidden="true" size={24} />
-                </IconButton>
-              </Dialog.Close>
-            </div>
+            <Dialog.Title className="sr-only">AfterTrip menu</Dialog.Title>
+            <ThemeToggle />
+            <Dialog.Close asChild>
+              <IconButton label="Close menu">
+                <X aria-hidden="true" size={24} />
+              </IconButton>
+            </Dialog.Close>
           </div>
           <nav aria-label="Mobile navigation">
             {navigationItems.map((item) => (

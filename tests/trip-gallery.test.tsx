@@ -41,4 +41,27 @@ describe("trip gallery", () => {
       within(dialog).queryByText("IMG_4312-final.jpg")
     ).not.toBeInTheDocument();
   });
+
+  it("opens videos with mobile-safe playback attributes", () => {
+    render(
+      <TripGallery
+        images={[
+          { src: "/media/journey.mp4", alt: "Journey video", type: "video" }
+        ]}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Journey video" }));
+
+    const dialog = screen.getByRole("dialog", { name: "Trip media viewer" });
+    const video = within(dialog).getByText("Video")
+      .closest(".gallery-lightbox-panel")
+      ?.querySelector("video");
+
+    expect(video).toHaveAttribute("src", "/media/journey.mp4");
+    expect(video).toHaveAttribute("controls");
+    expect(video).toHaveAttribute("playsinline");
+    expect(video).toHaveAttribute("preload", "metadata");
+    expect(video?.closest(".gallery-lightbox-panel")).toHaveClass("has-video");
+  });
 });

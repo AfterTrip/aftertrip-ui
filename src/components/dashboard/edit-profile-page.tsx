@@ -36,6 +36,7 @@ export function EditProfilePage() {
   const [location, setLocation] = useState("");
   const [tagline, setTagline] = useState("");
   const [avatarMediaId, setAvatarMediaId] = useState<string | null>(null);
+  const [coverMediaId, setCoverMediaId] = useState<string | null>(null);
   const [profilePhoto, setProfilePhoto] = useState("");
   const [saving, setSaving] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -51,6 +52,7 @@ export function EditProfilePage() {
         setLocation(profile.location ?? "");
         setTagline(profile.tagline ?? "");
         setAvatarMediaId(profile.avatarMediaId ?? null);
+        setCoverMediaId(profile.coverMediaId ?? null);
         setProfilePhoto(
           publicMediaUrl(profile.avatarMediaId) ?? profile.avatarUrl ?? ""
         );
@@ -93,7 +95,8 @@ export function EditProfilePage() {
         displayName: name.trim(),
         location: location.trim() || null,
         tagline: tagline.trim() || null,
-        avatarMediaId
+        avatarMediaId,
+        coverMediaId
       });
       setMessage("Profile saved.");
     } catch {
@@ -137,6 +140,13 @@ export function EditProfilePage() {
         </div>
         <div className="dashboard-mobile-actions">
           <ThemeToggle />
+          <Link
+            className="dashboard-mobile-bookmarks"
+            href="/dashboard/bookmarks"
+            aria-label="Open bookmarks"
+          >
+            <Bookmark aria-hidden="true" size={21} />
+          </Link>
         </div>
       </header>
 

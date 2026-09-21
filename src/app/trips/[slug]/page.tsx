@@ -313,7 +313,6 @@ export default async function TripDetailPage({ params }: TripPageProps) {
                   <WalletCards aria-hidden="true" size={22} />
                   Budget shared
                 </h2>
-                <a href="#spend">See details</a>
               </div>
               {trip.spend.label ? <p>{trip.spend.label}</p> : null}
               <div className="trip-spend-meter">
