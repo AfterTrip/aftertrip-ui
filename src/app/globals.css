@@ -17823,6 +17823,18 @@ body:has(.legal-page) .site-header .theme-toggle {
     height: 28px;
     flex: 0 0 28px;
   }
+
+  .featured-section .trip-grid.snap-row {
+    gap: 20px;
+    grid-auto-columns: min(80vw, 320px);
+    padding-right: var(--container-padding);
+  }
+
+  .destinations-section .destination-grid.snap-row {
+    gap: 18px;
+    grid-auto-columns: min(56vw, 214px);
+    padding-right: var(--container-padding);
+  }
 }
 
 @media (max-width: 380px) {
@@ -17833,5 +17845,15 @@ body:has(.legal-page) .site-header .theme-toggle {
 
   .hero-section .stat-item {
     gap: 9px;
+  }
+
+  .featured-section .trip-grid.snap-row {
+    gap: 18px;
+    grid-auto-columns: min(82vw, 306px);
+  }
+
+  .destinations-section .destination-grid.snap-row {
+    gap: 16px;
+    grid-auto-columns: min(58vw, 206px);
   }
 }
