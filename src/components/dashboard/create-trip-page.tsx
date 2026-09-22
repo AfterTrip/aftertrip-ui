@@ -70,7 +70,7 @@ type ItineraryDay = {
 };
 
 const contentLimits = {
-  summary: 1200,
+  summary: 600,
   goodToKnow: 2000,
   highlight: 160,
   itineraryHeadline: 140,
@@ -314,7 +314,7 @@ export function CreateTripPage({ tripId }: CreateTripPageProps = {}) {
     setStartDate(trip.startDate ?? "");
     setEndDate(trip.endDate ?? "");
     setTripGroup(titleCaseEnum(trip.tripGroup));
-    setSummary(trip.summary ?? "");
+    setSummary((trip.summary ?? "").slice(0, contentLimits.summary));
     setSelectedTripStyles(new Set(trip.styles.map(titleCaseEnum)));
     setHighlights(trip.highlights);
     setGoodToKnow(trip.goodToKnow ?? "");
@@ -384,7 +384,7 @@ export function CreateTripPage({ tripId }: CreateTripPageProps = {}) {
       await updateTripBasics(persistedTripId, basicsPayload(coverPhoto?.id));
     } else if (step === "about") {
       await updateTripStory(persistedTripId, {
-        summary: summary.trim() || null,
+        summary: summary.trim().slice(0, contentLimits.summary) || null,
         styles: [...selectedTripStyles].map(toApiEnum),
         highlights,
         goodToKnow: goodToKnow.trim() || null,
@@ -1692,7 +1692,9 @@ function AboutStep({
           <textarea
             value={summary}
             maxLength={contentLimits.summary}
-            onChange={(event) => setSummary(event.target.value)}
+            onChange={(event) =>
+              setSummary(event.target.value.slice(0, contentLimits.summary))
+            }
             placeholder="Share a short intro about your trip..."
             aria-required="true"
           />

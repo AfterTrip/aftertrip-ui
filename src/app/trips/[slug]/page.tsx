@@ -5,7 +5,6 @@ import { notFound } from "next/navigation";
 import {
   ArrowLeft,
   CalendarDays,
-  ChevronDown,
   Info,
   MapPin,
   Sparkles,
@@ -16,6 +15,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { TripActions } from "@/components/trip/trip-actions";
 import { TripGallery } from "@/components/trip/trip-gallery";
 import { TripSectionTabs } from "@/components/trip/trip-section-tabs";
+import { ReadMoreText } from "@/components/ui/read-more-text";
 import type { TripDetail } from "@/types/trip-detail";
 import {
   getProfiles,
@@ -164,7 +164,11 @@ export default async function TripDetailPage({ params }: TripPageProps) {
           </Link>
           <p className="trip-kicker">{trip.kicker}</p>
           <h1 id="trip-detail-title">{trip.title}</h1>
-          <p>{trip.summary}</p>
+          <ReadMoreText
+            text={trip.summary}
+            limit={500}
+            className="trip-hero-summary"
+          />
           <div className="trip-badges" aria-label="Trip highlights">
             {trip.badges.map((badge, index) => {
               const icons = [CalendarDays, Users, CalendarDays, WalletCards];
@@ -237,10 +241,7 @@ export default async function TripDetailPage({ params }: TripPageProps) {
                 />
                 <span>About this trip</span>
               </h2>
-              <p>{trip.about}</p>
-              <button type="button" className="trip-read-more">
-                Read more <ChevronDown aria-hidden="true" size={16} />
-              </button>
+              <ReadMoreText text={trip.about} limit={500} />
             </section>
           ) : null}
 
@@ -256,7 +257,7 @@ export default async function TripDetailPage({ params }: TripPageProps) {
                     <span>{item.day}</span>
                     <div>
                       <h3>{item.title}</h3>
-                      <p>{item.copy}</p>
+                      <ReadMoreText text={item.copy} limit={280} />
                     </div>
                   </li>
                 ))}
@@ -297,7 +298,9 @@ export default async function TripDetailPage({ params }: TripPageProps) {
                     <h2>Good to know</h2>
                     <ul className="trip-note-list">
                       {trip.goodToKnow.map((tip) => (
-                        <li key={tip}>{tip}</li>
+                        <li key={tip}>
+                          <ReadMoreText text={tip} limit={240} />
+                        </li>
                       ))}
                     </ul>
                   </div>

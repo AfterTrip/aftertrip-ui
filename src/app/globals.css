@@ -5755,6 +5755,7 @@ body:has(.trip-detail-page) .desktop-actions .button-secondary {
 .trip-transport-card > div,
 .trip-note-card,
 .trip-read-more,
+.trip-read-more-toggle,
 .trip-add-tip {
   display: flex;
   align-items: center;
@@ -5781,7 +5782,8 @@ body:has(.trip-detail-page) .desktop-actions .button-secondary {
   line-height: 0.86;
 }
 
-.trip-detail-hero-inner > p:not(.trip-kicker) {
+.trip-detail-hero-inner > p:not(.trip-kicker),
+.trip-hero-summary p {
   max-width: 710px;
   margin: 14px 0 0;
   color: rgba(255, 255, 255, 0.94);
@@ -5959,9 +5961,15 @@ body:has(.trip-detail-page) .desktop-actions .button-secondary {
 .trip-detail-card p,
 .trip-side-card p,
 .trip-note-card p,
-.trip-transport-card p {
+.trip-transport-card p,
+.read-more-text p {
   color: var(--text-secondary);
   line-height: 1.55;
+}
+
+.read-more-text p {
+  margin: 0;
+  white-space: pre-line;
 }
 
 .trip-about-card {
@@ -5978,6 +5986,15 @@ body:has(.trip-detail-page) .desktop-actions .button-secondary {
 .trip-about-card p {
   max-width: 850px;
   margin: 14px 0 0;
+}
+
+.trip-about-card .read-more-text {
+  max-width: 850px;
+  margin-top: 14px;
+}
+
+.trip-about-card .read-more-text p {
+  margin-top: 0;
 }
 
 .trip-highlight-tags {
@@ -6048,6 +6065,59 @@ body:has(.trip-detail-page) .desktop-actions .button-secondary {
   font-weight: 850;
 }
 
+.trip-read-more-toggle {
+  width: max-content;
+  min-height: 34px;
+  gap: 6px;
+  border: 1px solid color-mix(in srgb, var(--primary) 22%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+  color: var(--primary);
+  margin-top: 10px;
+  padding: 0 12px;
+  font-size: 0.86rem;
+  font-weight: 850;
+  line-height: 1;
+  transition:
+    border-color 180ms ease,
+    background 180ms ease,
+    color 180ms ease;
+}
+
+.trip-read-more-toggle:hover,
+.trip-read-more-toggle:focus-visible {
+  border-color: color-mix(in srgb, var(--primary) 44%, transparent);
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+  color: var(--primary-hover);
+}
+
+.trip-read-more-toggle svg {
+  flex: 0 0 auto;
+  transition: transform 180ms ease;
+}
+
+.trip-read-more-toggle[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+
+.trip-hero-summary .trip-read-more-toggle {
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.94);
+  margin-top: 8px;
+  padding: 0;
+  font-size: 0.9rem;
+  text-decoration: none;
+}
+
+.trip-hero-summary .trip-read-more-toggle:hover,
+.trip-hero-summary .trip-read-more-toggle:focus-visible {
+  background: transparent;
+  color: #fff;
+}
+
 .trip-itinerary-card {
   border-color: transparent;
   box-shadow: none;
@@ -6116,6 +6186,10 @@ body:has(.trip-detail-page) .desktop-actions .button-secondary {
 .trip-timeline p {
   margin-top: 4px;
   color: var(--text-secondary);
+}
+
+.trip-timeline .read-more-text {
+  margin-top: 4px;
 }
 
 .trip-mobile-spend {
@@ -6255,6 +6329,10 @@ body:has(.trip-detail-page) .desktop-actions .button-secondary {
   padding-left: 18px;
   color: var(--text-secondary);
   line-height: 1.55;
+}
+
+.trip-note-list .read-more-text p {
+  color: inherit;
 }
 
 .trip-transport-card {
@@ -17154,6 +17232,40 @@ body:has(.legal-page) .site-header .theme-toggle {
   border-color: var(--primary);
   background: var(--primary);
   color: var(--primary-foreground);
+}
+
+:root[data-theme="dark"] .trip-detail-page .trip-read-more-toggle {
+  border-color: color-mix(in srgb, var(--primary) 34%, transparent);
+  background: color-mix(in srgb, var(--primary) 13%, var(--surface-raised));
+  color: #64e0c2;
+}
+
+:root[data-theme="dark"] .trip-detail-page .trip-read-more-toggle:hover,
+:root[data-theme="dark"] .trip-detail-page .trip-read-more-toggle:focus-visible {
+  border-color: color-mix(in srgb, var(--primary) 56%, transparent);
+  background: color-mix(in srgb, var(--primary) 20%, var(--surface-raised));
+  color: #8bf1d6;
+}
+
+:root[data-theme="dark"]
+  .trip-detail-page
+  .trip-hero-summary
+  .trip-read-more-toggle {
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.94);
+}
+
+:root[data-theme="dark"]
+  .trip-detail-page
+  .trip-hero-summary
+  .trip-read-more-toggle:hover,
+:root[data-theme="dark"]
+  .trip-detail-page
+  .trip-hero-summary
+  .trip-read-more-toggle:focus-visible {
+  background: transparent;
+  color: #fff;
 }
 
 :root[data-theme="dark"]
